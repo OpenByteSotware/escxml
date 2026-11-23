@@ -8,7 +8,13 @@
 #define ESCX_MAX_EVENTS 255U
 #endif
 #ifndef ESCX_MAX_TRANSITIONS
-#define ESCX_MAX_TRANSITIONS 65534UL
+#define ESCX_MAX_TRANSITIONS 65535UL
+#endif
+#ifndef ESCX_MAX_RANGES
+#define ESCX_MAX_RANGES 65535UL
+#endif
+#ifndef ESCX_MAX_SLOTS
+#define ESCX_MAX_SLOTS 65535UL
 #endif
 #ifndef ESCX_QUEUE_SIZE
 #define ESCX_QUEUE_SIZE 4U
@@ -32,11 +38,26 @@
 #if (ESCX_MAX_EVENTS < 1U) || (ESCX_MAX_EVENTS > 255U)
 #error ESCX_MAX_EVENTS must be between 1 and 255
 #endif
+#if (ESCX_MAX_TRANSITIONS < 1UL) || (ESCX_MAX_TRANSITIONS > 65535UL)
+#error ESCX_MAX_TRANSITIONS must be between 1 and 65535
+#endif
+#if (ESCX_MAX_RANGES < 1UL) || (ESCX_MAX_RANGES > 65535UL)
+#error ESCX_MAX_RANGES must be between 1 and 65535
+#endif
+#if (ESCX_MAX_SLOTS < 1UL) || (ESCX_MAX_SLOTS > 65535UL)
+#error ESCX_MAX_SLOTS must be between 1 and 65535
+#endif
 #if (ESCX_QUEUE_SIZE < 1U) || (ESCX_QUEUE_SIZE > 255U)
 #error ESCX_QUEUE_SIZE must be between 1 and 255
 #endif
 #if (ESCX_ENABLE_EVENT_DATA != 0) && (ESCX_ENABLE_EVENT_DATA != 1)
 #error ESCX_ENABLE_EVENT_DATA must be 0 or 1
+#endif
+#if (ESCX_ENABLE_TIMERS != 0) && (ESCX_ENABLE_TIMERS != 1)
+#error ESCX_ENABLE_TIMERS must be 0 or 1
+#endif
+#if (ESCX_ENABLE_ASSERTS != 0) && (ESCX_ENABLE_ASSERTS != 1)
+#error ESCX_ENABLE_ASSERTS must be 0 or 1
 #endif
 
 #define ESCX_JOIN_INNER(a, b) a##b

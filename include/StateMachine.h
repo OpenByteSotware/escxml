@@ -12,7 +12,8 @@ extern "C" {
 #define ESCX_TIMER_EVENT ((ESCX_BYTE_T)0U)
 #define ESCX_NO_EVENT ((ESCX_BYTE_T)255U)
 #define ESCX_NO_OWNER ((ESCX_BYTE_T)255U)
-#define ESCX_NO_RANGE ((ESCX_UINT16_T)65535U)
+#define ESCX_INVALID_INDEX ((ESCX_UINT16_T)65535U)
+#define ESCX_NO_RANGE ESCX_INVALID_INDEX
 #define ESCX_INVALID_TIMER_ID (-1)
 
 struct ESCX_StateMachine;
@@ -114,6 +115,10 @@ ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *, ESCX_BYTE_T);
     ESCX_COMPILE_ASSERT_N(name##_EVENT_COUNT <= ESCX_MAX_EVENTS, events); \
     ESCX_COMPILE_ASSERT_N((sizeof(name##_state_base)/sizeof(name##_state_base[0])) == (sizeof(name##_states)/sizeof(name##_states[0])), bases); \
     ESCX_COMPILE_ASSERT_N((sizeof(name##_slot_owner)/sizeof(name##_slot_owner[0])) == (sizeof(name##_slot_range)/sizeof(name##_slot_range[0])), slots); \
+    ESCX_COMPILE_ASSERT_N((sizeof(name##_ranges)/sizeof(name##_ranges[0])) <= ESCX_MAX_RANGES, ranges_limit); \
+    ESCX_COMPILE_ASSERT_N((sizeof(name##_slot_owner)/sizeof(name##_slot_owner[0])) <= ESCX_MAX_SLOTS, slots_limit); \
+    ESCX_COMPILE_ASSERT_N((sizeof(name##_ranges)/sizeof(name##_ranges[0])) < 65536UL, ranges_width); \
+    ESCX_COMPILE_ASSERT_N((sizeof(name##_slot_owner)/sizeof(name##_slot_owner[0])) < 65536UL, slots_width); \
     static const ESCX_StateMachineDefinition name##_definition = { \
       name##_states, name##_transitions, name##_ranges, name##_state_base, name##_slot_owner, name##_slot_range, \
       (ESCX_UINT16_T)(sizeof(name##_states)/sizeof(name##_states[0])), \

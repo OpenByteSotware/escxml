@@ -4,52 +4,92 @@
 void ESCX_EventQueueInit(ESCX_EventQueue *queue)
 {
     unsigned int i;
-    ESCX_ASSERT_TRUE(queue != (ESCX_EventQueue *)0);
-    queue->front = 0U;
-    queue->count = 0U;
-    for (i = 0U; i < ESCX_QUEUE_SIZE; ++i)
+    if (queue == (ESCX_EventQueue *)0)
     {
-        queue->items[i].event_id = 0U;
+        ESCX_ASSERT_TRUE(0);
+        return;
+    }
+    queue->front = (ESCX_BYTE_T)0U;
+    queue->count = (ESCX_BYTE_T)0U;
+    for (i = 0U; i < (unsigned int)ESCX_QUEUE_SIZE; ++i)
+    {
+        queue->items[i].event_id = (ESCX_BYTE_T)0U;
 #if ESCX_ENABLE_EVENT_DATA
         queue->items[i].event_data = (void *)0;
 #endif
     }
 }
+
 ESCX_BOOL_T ESCX_EventQueueIsEmpty(const ESCX_EventQueue *queue)
 {
-    ESCX_ASSERT_TRUE(queue != (const ESCX_EventQueue *)0);
-    return (queue->count == 0U) ? ESCX_TRUE : ESCX_FALSE;
+    if (queue == (const ESCX_EventQueue *)0)
+    {
+        ESCX_ASSERT_TRUE(0);
+        return ESCX_TRUE;
+    }
+    return (queue->count == (ESCX_BYTE_T)0U) ? ESCX_TRUE : ESCX_FALSE;
 }
+
 ESCX_BOOL_T ESCX_EventQueueIsFull(const ESCX_EventQueue *queue)
 {
-    ESCX_ASSERT_TRUE(queue != (const ESCX_EventQueue *)0);
-    return (queue->count >= ESCX_QUEUE_SIZE) ? ESCX_TRUE : ESCX_FALSE;
+    if (queue == (const ESCX_EventQueue *)0)
+    {
+        ESCX_ASSERT_TRUE(0);
+        return ESCX_TRUE;
+    }
+    return ((unsigned int)queue->count >= (unsigned int)ESCX_QUEUE_SIZE) ? ESCX_TRUE : ESCX_FALSE;
 }
+
 ESCX_BOOL_T ESCX_EventQueuePush(ESCX_EventQueue *queue, ESCX_BYTE_T event_id, void *event_data)
 {
     unsigned int index;
-    ESCX_ASSERT_TRUE(queue != (ESCX_EventQueue *)0);
-    if (ESCX_EventQueueIsFull(queue) != ESCX_FALSE) return ESCX_FALSE;
-    index = (queue->front + queue->count) % ESCX_QUEUE_SIZE;
+    if (queue == (ESCX_EventQueue *)0)
+    {
+        ESCX_ASSERT_TRUE(0);
+        return ESCX_FALSE;
+    }
+    if (ESCX_EventQueueIsFull(queue) != ESCX_FALSE)
+    {
+        return ESCX_FALSE;
+    }
+    index = (unsigned int)queue->front + (unsigned int)queue->count;
+    if (index >= (unsigned int)ESCX_QUEUE_SIZE)
+    {
+        index -= (unsigned int)ESCX_QUEUE_SIZE;
+    }
     queue->items[index].event_id = event_id;
 #if ESCX_ENABLE_EVENT_DATA
     queue->items[index].event_data = event_data;
 #else
     (void)event_data;
 #endif
-    ++queue->count;
+    queue->count = (ESCX_BYTE_T)((unsigned int)queue->count + 1U);
     return ESCX_TRUE;
 }
+
 ESCX_BOOL_T ESCX_EventQueuePop(ESCX_EventQueue *queue, ESCX_QueuedEvent *event_out)
 {
-    ESCX_ASSERT_TRUE(queue != (ESCX_EventQueue *)0);
-    ESCX_ASSERT_TRUE(event_out != (ESCX_QueuedEvent *)0);
-    if (ESCX_EventQueueIsEmpty(queue) != ESCX_FALSE) return ESCX_FALSE;
+    unsigned int next_front;
+    if ((queue == (ESCX_EventQueue *)0) ||
+        (event_out == (ESCX_QueuedEvent *)0))
+    {
+        ESCX_ASSERT_TRUE(0);
+        return ESCX_FALSE;
+    }
+    if (ESCX_EventQueueIsEmpty(queue) != ESCX_FALSE)
+    {
+        return ESCX_FALSE;
+    }
     *event_out = queue->items[queue->front];
 #if ESCX_ENABLE_EVENT_DATA
     queue->items[queue->front].event_data = (void *)0;
 #endif
-    queue->front = (queue->front + 1U) % ESCX_QUEUE_SIZE;
-    --queue->count;
+    next_front = (unsigned int)queue->front + 1U;
+    if (next_front >= (unsigned int)ESCX_QUEUE_SIZE)
+    {
+        next_front = 0U;
+    }
+    queue->front = (ESCX_BYTE_T)next_front;
+    queue->count = (ESCX_BYTE_T)((unsigned int)queue->count - 1U);
     return ESCX_TRUE;
 }

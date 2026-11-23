@@ -35,3 +35,12 @@ The desktop generator emits exact-size arrays using:
 * `ESCX_DEFINE_MACHINE`
 
 The generator may spend additional time optimizing row placement. Runtime memory and execution speed take priority over generation and compile time.
+
+## v0.3.1 portability corrections
+
+- AVR function pointers are copied from program memory into their exact pointer types with `memcpy_P`.
+- ANSI width checks require 8-bit `unsigned char` and 16-bit `unsigned short`.
+- Green Hills no longer receives GCC warning options from CMake.
+- Generated range and slot counts are checked before 16-bit casts.
+- Queue indexes use bytes and avoid division/modulo.
+- Public functions validate pointers before dereferencing, even when assertion callbacks return.

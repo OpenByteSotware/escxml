@@ -10,8 +10,12 @@ static ESCX_ProcessStatus ESCX_Validate(const ESCX_StateMachine *m)
 void ESCX_StateMachineInit(ESCX_StateMachine *m, const ESCX_StateMachineDefinition *d, void *instance,
                            ESCX_StartTimerFunction start_timer, ESCX_CancelTimerFunction cancel_timer)
 {
-    ESCX_ASSERT_TRUE(m != (ESCX_StateMachine *)0);
-    ESCX_ASSERT_TRUE(d != (const ESCX_StateMachineDefinition *)0);
+    if ((m == (ESCX_StateMachine *)0) ||
+        (d == (const ESCX_StateMachineDefinition *)0))
+    {
+        ESCX_ASSERT_TRUE(0);
+        return;
+    }
     m->definition=d; m->instance=instance; m->current_state=ESCX_NO_STATE; m->current_event=ESCX_NO_EVENT;
     m->running=ESCX_FALSE; m->processing=ESCX_FALSE;
 #if ESCX_ENABLE_TIMERS
@@ -25,7 +29,9 @@ void ESCX_StateMachineInit(ESCX_StateMachine *m, const ESCX_StateMachineDefiniti
 static ESCX_StateFunction ESCX_ReadStateFunction(const ESCX_StateFunction *p)
 {
 #if defined(ESCX_PLATFORM_AVR) && (ESCX_PLATFORM_AVR != 0)
-    return (ESCX_StateFunction)ESCX_ROM_READ_PTR(p);
+    ESCX_StateFunction result;
+    (void)ESCX_ROM_COPY(&result, p, sizeof(result));
+    return result;
 #else
     return *p;
 #endif
@@ -33,7 +39,9 @@ static ESCX_StateFunction ESCX_ReadStateFunction(const ESCX_StateFunction *p)
 static ESCX_GuardFunction ESCX_ReadGuard(const ESCX_GuardFunction *p)
 {
 #if defined(ESCX_PLATFORM_AVR) && (ESCX_PLATFORM_AVR != 0)
-    return (ESCX_GuardFunction)ESCX_ROM_READ_PTR(p);
+    ESCX_GuardFunction result;
+    (void)ESCX_ROM_COPY(&result, p, sizeof(result));
+    return result;
 #else
     return *p;
 #endif
@@ -41,7 +49,9 @@ static ESCX_GuardFunction ESCX_ReadGuard(const ESCX_GuardFunction *p)
 static ESCX_ActionFunction ESCX_ReadAction(const ESCX_ActionFunction *p)
 {
 #if defined(ESCX_PLATFORM_AVR) && (ESCX_PLATFORM_AVR != 0)
-    return (ESCX_ActionFunction)ESCX_ROM_READ_PTR(p);
+    ESCX_ActionFunction result;
+    (void)ESCX_ROM_COPY(&result, p, sizeof(result));
+    return result;
 #else
     return *p;
 #endif
@@ -72,6 +82,11 @@ void ESCX_StateMachineStop(ESCX_StateMachine *m)
 static ESCX_UINT16_T ESCX_FindRange(const ESCX_StateMachine *m, ESCX_BYTE_T event_id)
 {
     ESCX_UINT16_T base, slot;
+    if ((m->current_state == ESCX_NO_STATE) ||
+        ((ESCX_UINT16_T)m->current_state >= m->definition->state_count))
+    {
+        return ESCX_NO_RANGE;
+    }
     base=ESCX_ROM_READ_U16(&m->definition->state_base[m->current_state]);
     slot=(ESCX_UINT16_T)(base+(ESCX_UINT16_T)event_id);
     if (slot>=m->definition->slot_count) return ESCX_NO_RANGE;
@@ -86,10 +101,22 @@ static ESCX_ProcessStatus ESCX_ProcessOne(ESCX_StateMachine *m, ESCX_BYTE_T even
     m->current_event=event_id; range_id=ESCX_FindRange(m,event_id);
     if((range_id==ESCX_NO_RANGE)||(range_id>=m->definition->range_count)) return ESCX_STATUS_IGNORED;
     r=&m->definition->ranges[range_id]; first=ESCX_ROM_READ_U16(&r->first_transition); count=ESCX_ROM_READ_U8(&r->transition_count);
+    if ((first >= m->definition->transition_count) ||
+        ((ESCX_UINT16_T)count > (ESCX_UINT16_T)(m->definition->transition_count - first)))
+    {
+        ESCX_ASSERT_TRUE(0);
+        return ESCX_STATUS_INVALID_ARGUMENT;
+    }
     for(i=0U;i<(ESCX_UINT16_T)count;++i) {
         t=&m->definition->transitions[first+i]; guard=ESCX_ReadGuard(&t->guard);
         if((guard==(ESCX_GuardFunction)0)||(guard(m,data)!=ESCX_FALSE)) {
             target=ESCX_ROM_READ_U8(&t->target_state);
+            if ((target == ESCX_NO_STATE) ||
+                ((ESCX_UINT16_T)target >= m->definition->state_count))
+            {
+                ESCX_ASSERT_TRUE(0);
+                return ESCX_STATUS_INVALID_ARGUMENT;
+            }
             if(target!=m->current_state) { f=ESCX_ReadStateFunction(&m->definition->states[m->current_state].on_exit); if(f!=(ESCX_StateFunction)0) f(m,data); }
             action=ESCX_ReadAction(&t->action); if(action!=(ESCX_ActionFunction)0) action(m,data);
             if(target!=m->current_state) ESCX_Enter(m,target,data); else { f=ESCX_ReadStateFunction(&m->definition->states[m->current_state].on_state); if(f!=(ESCX_StateFunction)0) f(m,data); }

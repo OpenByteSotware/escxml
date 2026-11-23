@@ -1,12 +1,12 @@
 #ifndef ESCX_STATE_MACHINE_EVENT_QUEUE_H
 #define ESCX_STATE_MACHINE_EVENT_QUEUE_H
+
 #include "DataTypes.h"
 #include "ESCXConfig.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 typedef struct ESCX_QueuedEvent
 {
@@ -19,8 +19,8 @@ typedef struct ESCX_QueuedEvent
 typedef struct ESCX_EventQueue
 {
     ESCX_QueuedEvent items[ESCX_QUEUE_SIZE];
-    unsigned int front;
-    unsigned int count;
+    ESCX_BYTE_T front;
+    ESCX_BYTE_T count;
 } ESCX_EventQueue;
 
 void ESCX_EventQueueInit(ESCX_EventQueue *queue);
