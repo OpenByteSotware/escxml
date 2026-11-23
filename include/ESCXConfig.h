@@ -86,6 +86,12 @@
 #if (ESCX_MAX_ENABLED_TRANSITIONS < 1U) || (ESCX_MAX_ENABLED_TRANSITIONS > 254U)
 #error ESCX_MAX_ENABLED_TRANSITIONS must be between 1 and 254
 #endif
+#ifndef ESCX_MAX_INVOKES
+#define ESCX_MAX_INVOKES 8U
+#endif
+#if (ESCX_MAX_INVOKES < 1U) || (ESCX_MAX_INVOKES > 254U)
+#error ESCX_MAX_INVOKES must be between 1 and 254
+#endif
 #define ESCX_JOIN_INNER(a, b) a##b
 #define ESCX_JOIN(a, b) ESCX_JOIN_INNER(a, b)
 #define ESCX_COMPILE_ASSERT_N(expression, suffix) \

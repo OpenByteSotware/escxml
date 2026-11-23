@@ -20,11 +20,17 @@ extern "C" {
 #define ESCX_ACTIVE_BYTES(count) (((count) + 7U) / 8U)
 
 struct ESCX_StateMachine;
+struct ESCX_InvokeDescriptor;
+
 typedef void (*ESCX_ActionFunction)(struct ESCX_StateMachine *, void *);
 typedef void (*ESCX_StateFunction)(struct ESCX_StateMachine *, void *);
 typedef ESCX_UINT16_T (*ESCX_SelectorFunction)(struct ESCX_StateMachine *, void *);
 typedef int (*ESCX_StartTimerFunction)(struct ESCX_StateMachine *, const char *, int, int);
 typedef int (*ESCX_CancelTimerFunction)(struct ESCX_StateMachine *, const char *, int);
+typedef int (*ESCX_InvokeStartFunction)(struct ESCX_StateMachine *, void *);
+typedef void (*ESCX_InvokeCancelFunction)(struct ESCX_StateMachine *, void *);
+typedef int (*ESCX_InvokeForwardFunction)(struct ESCX_StateMachine *, void *, ESCX_BYTE_T, void *);
+typedef void (*ESCX_InvokeFinalizeFunction)(struct ESCX_StateMachine *, void *, ESCX_BYTE_T, void *);
 
 typedef enum ESCX_StateType { ESCX_STATE_ATOMIC=0, ESCX_STATE_COMPOUND=1, ESCX_STATE_PARALLEL=2, ESCX_STATE_FINAL=3, ESCX_STATE_HISTORY_SHALLOW=4, ESCX_STATE_HISTORY_DEEP=5 } ESCX_StateType;
 typedef enum ESCX_TransitionType { ESCX_TRANSITION_EXTERNAL=0, ESCX_TRANSITION_INTERNAL=1, ESCX_TRANSITION_TARGETLESS=2 } ESCX_TransitionType;
@@ -45,6 +51,12 @@ typedef enum ESCX_ProcessStatus {
  ESCX_STATUS_NOT_RUNNING=3, ESCX_STATUS_QUEUE_FULL=4, ESCX_STATUS_INVALID_ARGUMENT=5,
  ESCX_STATUS_HIERARCHY_LIMIT=6, ESCX_STATUS_MICROSTEP_LIMIT=7
 } ESCX_ProcessStatus;
+typedef struct ESCX_InvokeDescriptor {
+ ESCX_BYTE_T owner_state; ESCX_BYTE_T done_event; ESCX_BOOL_T autoforward;
+ void *child_storage; ESCX_InvokeStartFunction start; ESCX_InvokeCancelFunction cancel;
+ ESCX_InvokeForwardFunction forward; ESCX_InvokeFinalizeFunction finalize;
+} ESCX_InvokeDescriptor;
+typedef struct ESCX_InvokeInstance { ESCX_BOOL_T active; } ESCX_InvokeInstance;
 typedef struct ESCX_StateMachineDefinition {
  const ESCX_StateDescriptor *states; const ESCX_BYTE_T *children;
  const ESCX_Transition *transitions; const ESCX_StatePlan *plans; const ESCX_BYTE_T *plan_states;
@@ -59,6 +71,7 @@ typedef struct ESCX_StateMachine {
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
  ESCX_HistoryStorage *history;
+ const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
 #if ESCX_ENABLE_TIMERS
  int timer_id; ESCX_StartTimerFunction start_timer; ESCX_CancelTimerFunction cancel_timer;
 #endif
@@ -74,7 +87,13 @@ ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,int,void *);
 ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
 ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine *);
+ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine *,const ESCX_InvokeDescriptor *,ESCX_InvokeInstance *,ESCX_BYTE_T);
+ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine *,ESCX_BYTE_T,void *);
+ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T,void *);
 
+#define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
+#define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize},
+#define ESCX_INVOKES_END() };
 #define ESCX_STATE_ENUM_BEGIN(n) typedef enum n##_StateId { n##_NO_STATE=0,
 #define ESCX_STATE_ENUM(v) v,
 #define ESCX_STATE_ENUM_END(n) n##_STATE_COUNT } n##_StateId;
