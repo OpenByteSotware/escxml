@@ -34,7 +34,10 @@ typedef struct ESCX_StateDescriptor {
  ESCX_UINT16_T eventless_selector;
 } ESCX_StateDescriptor;
 typedef struct ESCX_StatePlan { ESCX_UINT16_T first_state; ESCX_BYTE_T state_count; } ESCX_StatePlan;
-typedef struct ESCX_Transition { ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action; ESCX_BYTE_T type; } ESCX_Transition;
+typedef struct ESCX_Transition {
+ ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action;
+ ESCX_BYTE_T type; ESCX_BYTE_T source_state; ESCX_BYTE_T source_depth; ESCX_BYTE_T document_order;
+} ESCX_Transition;
 typedef enum ESCX_ProcessStatus {
  ESCX_STATUS_IGNORED=0, ESCX_STATUS_PROCESSED=1, ESCX_STATUS_INVALID_EVENT=2,
  ESCX_STATUS_NOT_RUNNING=3, ESCX_STATUS_QUEUE_FULL=4, ESCX_STATUS_INVALID_ARGUMENT=5,
@@ -50,7 +53,8 @@ typedef struct ESCX_StateMachineDefinition {
 } ESCX_StateMachineDefinition;
 typedef struct ESCX_StateMachine {
  const ESCX_StateMachineDefinition *definition; void *instance;
- ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count; ESCX_BYTE_T active_atomic_state;
+ ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
+ ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_BOOL_T running; ESCX_BOOL_T processing;
 #if ESCX_ENABLE_TIMERS
  int timer_id; ESCX_StartTimerFunction start_timer; ESCX_CancelTimerFunction cancel_timer;
@@ -87,9 +91,10 @@ ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
 #define ESCX_PLAN_STATE(v) (ESCX_BYTE_T)(v),
 #define ESCX_PLAN_STATES_END() };
 #define ESCX_TRANSITIONS_BEGIN(n) static const ESCX_Transition n##_transitions[] ESCX_ROM={
-#define ESCX_TRANSITION_EX(exit_plan,entry_plan,action,type) {(ESCX_UINT16_T)(exit_plan),(ESCX_UINT16_T)(entry_plan),action,(ESCX_BYTE_T)(type)},
-#define ESCX_TRANSITION(exit_plan,entry_plan,action) ESCX_TRANSITION_EX(exit_plan,entry_plan,action,ESCX_TRANSITION_EXTERNAL)
-#define ESCX_TARGETLESS_TRANSITION(action) ESCX_TRANSITION_EX(ESCX_NO_PLAN,ESCX_NO_PLAN,action,ESCX_TRANSITION_TARGETLESS)
+#define ESCX_TRANSITION_EX(exit_plan,entry_plan,action,type,source,depth,order) {(ESCX_UINT16_T)(exit_plan),(ESCX_UINT16_T)(entry_plan),action,(ESCX_BYTE_T)(type),(ESCX_BYTE_T)(source),(ESCX_BYTE_T)(depth),(ESCX_BYTE_T)(order)},
+#define ESCX_TRANSITION(exit_plan,entry_plan,action) ESCX_TRANSITION_EX(exit_plan,entry_plan,action,ESCX_TRANSITION_EXTERNAL,ESCX_NO_STATE,0U,0U)
+#define ESCX_TRANSITION_META(exit_plan,entry_plan,action,type,source,depth,order) ESCX_TRANSITION_EX(exit_plan,entry_plan,action,type,source,depth,order)
+#define ESCX_TARGETLESS_TRANSITION(action) ESCX_TRANSITION_EX(ESCX_NO_PLAN,ESCX_NO_PLAN,action,ESCX_TRANSITION_TARGETLESS,ESCX_NO_STATE,0U,0U)
 #define ESCX_TRANSITIONS_END() };
 #define ESCX_SELECTOR_BEGIN(n) static ESCX_UINT16_T n(ESCX_StateMachine *machine,void *event_data){
 #define ESCX_SELECTOR_SWITCH(x) switch(x){
