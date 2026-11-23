@@ -1,20 +1,42 @@
-# ESCXML embedded runtime 0.3.0
+# ESCXML embedded runtime 0.4.0
 
-ANSI C90 embedded state-machine runtime with generated O(1) state/event dispatch.
+ANSI C90 embedded state-machine runtime with generated row-displacement state/event lookup and generated selector functions.
 
-## Runtime guarantee
+## Dispatch model
 
-The generator emits a compressed row-displacement index. Lookup performs a fixed number of ROM reads, one addition, one bounds check and one owner check. It never scans states, events, or the complete transition table. For one candidate per state/event pair, transition selection is worst-case O(1). If SCXML defines multiple ordered guards for the same pair, locating their range is O(1), while guard evaluation is O(k) for only those k candidates.
+1. The row-displacement arrays locate one selector ID using a fixed number of indexed ROM reads. This portion is O(1) and never scans states, events, or transitions.
+2. The generated selector uses a C `switch` or a fixed sequence of conditions to return one transition ID.
+3. The runtime executes that transition directly. It does not loop over guard candidates.
 
-All generated lookup arrays and descriptors use `static const` storage. No heap or runtime table construction is used.
+A C compiler is free to lower `switch` into a jump table, comparison tree, or comparison sequence. Selector work is bounded by generated code and does not grow with the total state-machine size, but it is not claimed to be strict O(1) for arbitrary guards.
 
-## Cross-platform ROM access
+## Memory behavior
 
-Normal ARM, x86, Windows, Linux and Green Hills builds use ordinary const reads. Classic AVR builds define:
+* No guard-key tables.
+* No cached guard state.
+* No dynamic allocation.
+* No runtime table construction.
+* No guard function pointer in each transition descriptor.
+* State, transition, selector and row-displacement arrays are `static const` and use `PROGMEM` on classic AVR.
 
-    ESCX_PLATFORM_AVR=1
+## Generated selector example
 
-This enables `PROGMEM`, `pgm_read_byte`, `pgm_read_word`, and `pgm_read_ptr` through `ESCXRom.h`. Generated source remains the same across targets.
+    ESCX_SELECTOR_BEGIN(Machine_SelectMode)
+        MachineData *data;
+        (void)event_data;
+        data = (MachineData *)machine->instance;
+        ESCX_SELECTOR_SWITCH(data->mode)
+            ESCX_SELECTOR_CASE(0, MACHINE_TRANSITION_MODE0)
+            ESCX_SELECTOR_CASE(1, MACHINE_TRANSITION_MODE1)
+            ESCX_SELECTOR_DEFAULT(ESCX_NO_TRANSITION)
+        ESCX_SELECTOR_SWITCH_END()
+    ESCX_SELECTOR_END()
+
+Unconditional transitions use a selector that immediately returns one transition ID. This costs one selector call but keeps one compact and portable runtime representation.
+
+## Platform support
+
+Normal ARM, x86, Windows, Linux and Green Hills builds use ordinary const reads. Define `ESCX_PLATFORM_AVR=1` for classic AVR targets to enable `PROGMEM` and typed `memcpy_P` reads for function pointers.
 
 ## Strict validation
 
@@ -22,25 +44,4 @@ This enables `PROGMEM`, `pgm_read_byte`, `pgm_read_word`, and `pgm_read_ptr` thr
       -Iinclude -Iexample src/*.c example/SimpleMachine.c \
       tests/test_state_machine.c -o escxml_test
 
-## Generator output contract
-
-The desktop generator emits exact-size arrays using:
-
-* `ESCX_STATES_BEGIN`
-* `ESCX_TRANSITIONS_BEGIN`
-* `ESCX_RANGES_BEGIN`
-* `ESCX_STATE_BASE_BEGIN`
-* `ESCX_SLOT_OWNER_BEGIN`
-* `ESCX_SLOT_RANGE_BEGIN`
-* `ESCX_DEFINE_MACHINE`
-
-The generator may spend additional time optimizing row placement. Runtime memory and execution speed take priority over generation and compile time.
-
-## v0.3.1 portability corrections
-
-- AVR function pointers are copied from program memory into their exact pointer types with `memcpy_P`.
-- ANSI width checks require 8-bit `unsigned char` and 16-bit `unsigned short`.
-- Green Hills no longer receives GCC warning options from CMake.
-- Generated range and slot counts are checked before 16-bit casts.
-- Queue indexes use bytes and avoid division/modulo.
-- Public functions validate pointers before dereferencing, even when assertion callbacks return.
+The package tests switch-selected transitions, an unconditional selector, and the no-match path.

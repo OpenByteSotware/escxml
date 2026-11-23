@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(escxml_embedded_runtime VERSION 0.3.1 LANGUAGES C)
+project(escxml_embedded_runtime VERSION 0.4.0 LANGUAGES C)
 
 add_library(escxml_runtime
     src/AssertHandler.c
@@ -21,7 +21,7 @@ option(ESCX_BUILD_TESTS "Build tests and example" ON)
 set(ESCX_MAX_STATES 255 CACHE STRING "Maximum generated states")
 set(ESCX_MAX_EVENTS 255 CACHE STRING "Maximum generated events")
 set(ESCX_MAX_TRANSITIONS 65535 CACHE STRING "Maximum generated transitions")
-set(ESCX_MAX_RANGES 65535 CACHE STRING "Maximum generated transition ranges")
+set(ESCX_MAX_RANGES 65535 CACHE STRING "Maximum generated selector functions")
 set(ESCX_MAX_SLOTS 65535 CACHE STRING "Maximum generated row-displacement slots")
 set(ESCX_QUEUE_SIZE 4 CACHE STRING "Event queue depth")
 option(ESCX_ENABLE_EVENT_DATA "Store event payload pointers in queue" ON)

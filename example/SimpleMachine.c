@@ -1,28 +1,80 @@
 #include "SimpleMachine.h"
-static void IdleEntry(ESCX_StateMachine *m,void *e){SimpleData*d;(void)e;d=(SimpleData*)m->instance;++d->entry_count;}
-static ESCX_BOOL_T CanStart(ESCX_StateMachine*m,void*e){(void)m;(void)e;return ESCX_TRUE;}
-static void Action(ESCX_StateMachine*m,void*e){SimpleData*d;(void)e;d=(SimpleData*)m->instance;++d->transition_count;}
+
+#define SIMPLE_TRANSITION_START_RUNNING 0U
+#define SIMPLE_TRANSITION_START_ERROR   1U
+#define SIMPLE_TRANSITION_STOP_IDLE     2U
+
+static void IdleEntry(ESCX_StateMachine *machine, void *event_data)
+{
+    SimpleData *data;
+    (void)event_data;
+    data = (SimpleData *)machine->instance;
+    ++data->entry_count;
+}
+
+static void TransitionAction(ESCX_StateMachine *machine, void *event_data)
+{
+    SimpleData *data;
+    (void)event_data;
+    data = (SimpleData *)machine->instance;
+    ++data->transition_count;
+}
+
+ESCX_SELECTOR_BEGIN(Simple_SelectStart)
+    SimpleData *data;
+    (void)event_data;
+    data = (SimpleData *)machine->instance;
+    ESCX_SELECTOR_SWITCH(data->mode)
+        ESCX_SELECTOR_CASE(0, SIMPLE_TRANSITION_START_RUNNING)
+        ESCX_SELECTOR_CASE(1, SIMPLE_TRANSITION_START_ERROR)
+        ESCX_SELECTOR_DEFAULT(ESCX_NO_TRANSITION)
+    ESCX_SELECTOR_SWITCH_END()
+ESCX_SELECTOR_END()
+
+ESCX_SELECTOR_BEGIN(Simple_SelectStop)
+    (void)machine;
+    (void)event_data;
+    ESCX_SELECTOR_RETURN(SIMPLE_TRANSITION_STOP_IDLE)
+ESCX_SELECTOR_END()
+
 ESCX_STATES_BEGIN(SimpleMachine)
- ESCX_STATE((ESCX_StateFunction)0,(ESCX_StateFunction)0,(ESCX_StateFunction)0)
- ESCX_STATE(IdleEntry,(ESCX_StateFunction)0,(ESCX_StateFunction)0)
- ESCX_STATE((ESCX_StateFunction)0,(ESCX_StateFunction)0,(ESCX_StateFunction)0)
+    ESCX_STATE((ESCX_StateFunction)0, (ESCX_StateFunction)0, (ESCX_StateFunction)0)
+    ESCX_STATE(IdleEntry, (ESCX_StateFunction)0, (ESCX_StateFunction)0)
+    ESCX_STATE((ESCX_StateFunction)0, (ESCX_StateFunction)0, (ESCX_StateFunction)0)
+    ESCX_STATE((ESCX_StateFunction)0, (ESCX_StateFunction)0, (ESCX_StateFunction)0)
 ESCX_STATES_END()
+
 ESCX_TRANSITIONS_BEGIN(SimpleMachine)
- ESCX_TRANSITION(SimpleMachine_Running,CanStart,Action)
- ESCX_TRANSITION(SimpleMachine_Idle,(ESCX_GuardFunction)0,Action)
+    ESCX_TRANSITION(SimpleMachine_Running, TransitionAction)
+    ESCX_TRANSITION(SimpleMachine_Error, TransitionAction)
+    ESCX_TRANSITION(SimpleMachine_Idle, TransitionAction)
 ESCX_TRANSITIONS_END()
-ESCX_RANGES_BEGIN(SimpleMachine)
- ESCX_RANGE(0U,1U)
- ESCX_RANGE(1U,1U)
-ESCX_RANGES_END()
+
+ESCX_SELECTORS_BEGIN(SimpleMachine)
+    ESCX_SELECTOR(Simple_SelectStart)
+    ESCX_SELECTOR(Simple_SelectStop)
+ESCX_SELECTORS_END()
+
 ESCX_STATE_BASE_BEGIN(SimpleMachine)
- ESCX_INDEX_U16(0U) ESCX_INDEX_U16(0U) ESCX_INDEX_U16(1U)
+    ESCX_INDEX_U16(0U)
+    ESCX_INDEX_U16(0U)
+    ESCX_INDEX_U16(1U)
+    ESCX_INDEX_U16(1U)
 ESCX_STATE_BASE_END()
+
 ESCX_SLOT_OWNER_BEGIN(SimpleMachine)
- ESCX_INDEX_U8(ESCX_NO_OWNER) ESCX_INDEX_U8(SimpleMachine_Idle) ESCX_INDEX_U8(ESCX_NO_OWNER) ESCX_INDEX_U8(SimpleMachine_Running)
+    ESCX_INDEX_U8(ESCX_NO_OWNER)
+    ESCX_INDEX_U8(SimpleMachine_Idle)
+    ESCX_INDEX_U8(ESCX_NO_OWNER)
+    ESCX_INDEX_U8(SimpleMachine_Running)
 ESCX_SLOT_OWNER_END()
-ESCX_SLOT_RANGE_BEGIN(SimpleMachine)
- ESCX_INDEX_U16(ESCX_NO_RANGE) ESCX_INDEX_U16(0U) ESCX_INDEX_U16(ESCX_NO_RANGE) ESCX_INDEX_U16(1U)
-ESCX_SLOT_RANGE_END()
-ESCX_DEFINE_MACHINE(SimpleMachine,SimpleMachine_Idle);
+
+ESCX_SLOT_SELECTOR_BEGIN(SimpleMachine)
+    ESCX_INDEX_U16(ESCX_NO_SELECTOR)
+    ESCX_INDEX_U16(0U)
+    ESCX_INDEX_U16(ESCX_NO_SELECTOR)
+    ESCX_INDEX_U16(1U)
+ESCX_SLOT_SELECTOR_END()
+
+ESCX_DEFINE_MACHINE(SimpleMachine, SimpleMachine_Idle);
 ESCX_IMPLEMENT_MACHINE(SimpleMachine)
