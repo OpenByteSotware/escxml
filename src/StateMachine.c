@@ -1,151 +1,130 @@
 #include "StateMachine.h"
 #include "AssertHandler.h"
-#include <stddef.h>
 
-static ESCX_ProcessStatus ESCX_Validate(const ESCX_StateMachine *machine)
+static ESCX_ProcessStatus ESCX_Validate(const ESCX_StateMachine *m)
 {
-    if ((machine == (const ESCX_StateMachine *)0) ||
-        (machine->definition == (const ESCX_StateMachineDefinition *)0))
-    {
-        return ESCX_STATUS_INVALID_ARGUMENT;
-    }
+    if ((m == (const ESCX_StateMachine *)0) || (m->definition == (const ESCX_StateMachineDefinition *)0)) return ESCX_STATUS_INVALID_ARGUMENT;
     return ESCX_STATUS_PROCESSED;
 }
 
-void ESCX_StateMachineInit(ESCX_StateMachine *machine, const ESCX_StateMachineDefinition *definition,
-                          void *instance, ESCX_StartTimerFunction start_timer,
-                          ESCX_CancelTimerFunction cancel_timer)
+void ESCX_StateMachineInit(ESCX_StateMachine *m, const ESCX_StateMachineDefinition *d, void *instance,
+                           ESCX_StartTimerFunction start_timer, ESCX_CancelTimerFunction cancel_timer)
 {
-    ESCX_ASSERT_TRUE(machine != (ESCX_StateMachine *)0);
-    ESCX_ASSERT_TRUE(definition != (const ESCX_StateMachineDefinition *)0);
-    ESCX_ASSERT_TRUE(definition->states != (const ESCX_StateDescriptor *)0);
-    ESCX_ASSERT_TRUE(definition->state_count > 1U);
-    ESCX_ASSERT_TRUE(definition->initial_state > ESCX_NO_STATE);
-    ESCX_ASSERT_TRUE((unsigned int)definition->initial_state < definition->state_count);
-    machine->definition = definition;
-    machine->instance = instance;
-    machine->current_state = ESCX_NO_STATE;
-    machine->current_event = ESCX_NO_EVENT;
-    machine->running = ESCX_FALSE;
-    machine->processing = ESCX_FALSE;
-    machine->timer_id = ESCX_INVALID_TIMER_ID;
-    machine->start_timer = start_timer;
-    machine->cancel_timer = cancel_timer;
-    ESCX_EventQueueInit(&machine->event_queue);
+    ESCX_ASSERT_TRUE(m != (ESCX_StateMachine *)0);
+    ESCX_ASSERT_TRUE(d != (const ESCX_StateMachineDefinition *)0);
+    m->definition=d; m->instance=instance; m->current_state=ESCX_NO_STATE; m->current_event=ESCX_NO_EVENT;
+    m->running=ESCX_FALSE; m->processing=ESCX_FALSE;
+#if ESCX_ENABLE_TIMERS
+    m->timer_id=ESCX_INVALID_TIMER_ID; m->start_timer=start_timer; m->cancel_timer=cancel_timer;
+#else
+    (void)start_timer; (void)cancel_timer;
+#endif
+    ESCX_EventQueueInit(&m->event_queue);
 }
 
-static void ESCX_EnterState(ESCX_StateMachine *machine, ESCX_BYTE_T state, void *event_data)
+static ESCX_StateFunction ESCX_ReadStateFunction(const ESCX_StateFunction *p)
 {
-    const ESCX_StateDescriptor *descriptor;
-    descriptor = &machine->definition->states[state];
-    machine->current_state = state;
-    if (descriptor->on_entry != (ESCX_StateFunction)0) descriptor->on_entry(machine, event_data);
-    if (descriptor->on_state != (ESCX_StateFunction)0) descriptor->on_state(machine, event_data);
+#if defined(ESCX_PLATFORM_AVR) && (ESCX_PLATFORM_AVR != 0)
+    return (ESCX_StateFunction)ESCX_ROM_READ_PTR(p);
+#else
+    return *p;
+#endif
 }
-
-ESCX_ProcessStatus ESCX_StateMachineStart(ESCX_StateMachine *machine)
+static ESCX_GuardFunction ESCX_ReadGuard(const ESCX_GuardFunction *p)
 {
-    ESCX_ProcessStatus status;
-    status = ESCX_Validate(machine);
-    if (status != ESCX_STATUS_PROCESSED) return status;
-    if (machine->running != ESCX_FALSE) return ESCX_STATUS_IGNORED;
-    machine->running = ESCX_TRUE;
-    machine->current_event = ESCX_NO_EVENT;
-    ESCX_EnterState(machine, machine->definition->initial_state, (void *)0);
-    return ESCX_STATUS_PROCESSED;
+#if defined(ESCX_PLATFORM_AVR) && (ESCX_PLATFORM_AVR != 0)
+    return (ESCX_GuardFunction)ESCX_ROM_READ_PTR(p);
+#else
+    return *p;
+#endif
 }
-
-void ESCX_StateMachineStop(ESCX_StateMachine *machine)
+static ESCX_ActionFunction ESCX_ReadAction(const ESCX_ActionFunction *p)
 {
-    const ESCX_StateDescriptor *descriptor;
-    if ((machine == (ESCX_StateMachine *)0) || (machine->definition == (const ESCX_StateMachineDefinition *)0)) return;
-    if ((machine->running != ESCX_FALSE) && (machine->current_state != ESCX_NO_STATE))
-    {
-        descriptor = &machine->definition->states[machine->current_state];
-        if (descriptor->on_exit != (ESCX_StateFunction)0) descriptor->on_exit(machine, (void *)0);
+#if defined(ESCX_PLATFORM_AVR) && (ESCX_PLATFORM_AVR != 0)
+    return (ESCX_ActionFunction)ESCX_ROM_READ_PTR(p);
+#else
+    return *p;
+#endif
+}
+static void ESCX_Enter(ESCX_StateMachine *m, ESCX_BYTE_T state, void *data)
+{
+    const ESCX_StateDescriptor *d=&m->definition->states[state]; ESCX_StateFunction f;
+    m->current_state=state; f=ESCX_ReadStateFunction(&d->on_entry); if (f!=(ESCX_StateFunction)0) f(m,data);
+    f=ESCX_ReadStateFunction(&d->on_state); if (f!=(ESCX_StateFunction)0) f(m,data);
+}
+ESCX_ProcessStatus ESCX_StateMachineStart(ESCX_StateMachine *m)
+{
+    if (ESCX_Validate(m)!=ESCX_STATUS_PROCESSED) return ESCX_STATUS_INVALID_ARGUMENT;
+    if (m->running!=ESCX_FALSE) return ESCX_STATUS_IGNORED;
+    m->running=ESCX_TRUE; ESCX_Enter(m,m->definition->initial_state,(void *)0); return ESCX_STATUS_PROCESSED;
+}
+void ESCX_StateMachineStop(ESCX_StateMachine *m)
+{
+    ESCX_StateFunction f;
+    if ((m==(ESCX_StateMachine *)0)||(m->definition==(const ESCX_StateMachineDefinition *)0)) return;
+    if ((m->running!=ESCX_FALSE)&&(m->current_state!=ESCX_NO_STATE)) {
+        f=ESCX_ReadStateFunction(&m->definition->states[m->current_state].on_exit); if(f!=(ESCX_StateFunction)0) f(m,(void *)0);
     }
-    machine->running = ESCX_FALSE;
-    machine->processing = ESCX_FALSE;
-    machine->current_state = ESCX_NO_STATE;
-    machine->current_event = ESCX_NO_EVENT;
-    ESCX_EventQueueInit(&machine->event_queue);
+    m->running=ESCX_FALSE; m->processing=ESCX_FALSE; m->current_state=ESCX_NO_STATE; ESCX_EventQueueInit(&m->event_queue);
 }
 
-static const ESCX_Transition *ESCX_FindTransition(ESCX_StateMachine *machine, ESCX_BYTE_T event_id, void *event_data)
+/* Fixed-cost row-displacement lookup: no state, event, or transition scan. */
+static ESCX_UINT16_T ESCX_FindRange(const ESCX_StateMachine *m, ESCX_BYTE_T event_id)
 {
-    unsigned int i;
-    const ESCX_Transition *transition;
-    for (i = 0U; i < machine->definition->transition_count; ++i)
-    {
-        transition = &machine->definition->transitions[i];
-        if ((transition->source_state == machine->current_state) && (transition->event_id == event_id))
-        {
-            if ((transition->guard == (ESCX_GuardFunction)0) || (transition->guard(machine, event_data) != ESCX_FALSE))
-            {
-                return transition;
-            }
+    ESCX_UINT16_T base, slot;
+    base=ESCX_ROM_READ_U16(&m->definition->state_base[m->current_state]);
+    slot=(ESCX_UINT16_T)(base+(ESCX_UINT16_T)event_id);
+    if (slot>=m->definition->slot_count) return ESCX_NO_RANGE;
+    if (ESCX_ROM_READ_U8(&m->definition->slot_owner[slot])!=m->current_state) return ESCX_NO_RANGE;
+    return ESCX_ROM_READ_U16(&m->definition->slot_range[slot]);
+}
+static ESCX_ProcessStatus ESCX_ProcessOne(ESCX_StateMachine *m, ESCX_BYTE_T event_id, void *data)
+{
+    ESCX_UINT16_T range_id, first, i; ESCX_BYTE_T count, target; const ESCX_TransitionRange *r;
+    const ESCX_Transition *t; ESCX_GuardFunction guard; ESCX_ActionFunction action; ESCX_StateFunction f;
+    if(event_id>=m->definition->event_count) return ESCX_STATUS_INVALID_EVENT;
+    m->current_event=event_id; range_id=ESCX_FindRange(m,event_id);
+    if((range_id==ESCX_NO_RANGE)||(range_id>=m->definition->range_count)) return ESCX_STATUS_IGNORED;
+    r=&m->definition->ranges[range_id]; first=ESCX_ROM_READ_U16(&r->first_transition); count=ESCX_ROM_READ_U8(&r->transition_count);
+    for(i=0U;i<(ESCX_UINT16_T)count;++i) {
+        t=&m->definition->transitions[first+i]; guard=ESCX_ReadGuard(&t->guard);
+        if((guard==(ESCX_GuardFunction)0)||(guard(m,data)!=ESCX_FALSE)) {
+            target=ESCX_ROM_READ_U8(&t->target_state);
+            if(target!=m->current_state) { f=ESCX_ReadStateFunction(&m->definition->states[m->current_state].on_exit); if(f!=(ESCX_StateFunction)0) f(m,data); }
+            action=ESCX_ReadAction(&t->action); if(action!=(ESCX_ActionFunction)0) action(m,data);
+            if(target!=m->current_state) ESCX_Enter(m,target,data); else { f=ESCX_ReadStateFunction(&m->definition->states[m->current_state].on_state); if(f!=(ESCX_StateFunction)0) f(m,data); }
+            return ESCX_STATUS_PROCESSED;
         }
     }
-    return (const ESCX_Transition *)0;
+    return ESCX_STATUS_IGNORED;
 }
-
-static ESCX_ProcessStatus ESCX_ProcessOne(ESCX_StateMachine *machine, ESCX_BYTE_T event_id, void *event_data)
+ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *m, ESCX_BYTE_T event_id, void *data)
 {
-    const ESCX_Transition *transition;
-    const ESCX_StateDescriptor *old_state;
-    if (event_id >= machine->definition->event_count) return ESCX_STATUS_INVALID_EVENT;
-    machine->current_event = event_id;
-    transition = ESCX_FindTransition(machine, event_id, event_data);
-    if (transition == (const ESCX_Transition *)0) return ESCX_STATUS_IGNORED;
-    old_state = &machine->definition->states[machine->current_state];
-    if ((transition->target_state != machine->current_state) && (old_state->on_exit != (ESCX_StateFunction)0))
-        old_state->on_exit(machine, event_data);
-    if (transition->action != (ESCX_ActionFunction)0) transition->action(machine, event_data);
-    if (transition->target_state != machine->current_state)
-        ESCX_EnterState(machine, transition->target_state, event_data);
-    else if (old_state->on_state != (ESCX_StateFunction)0)
-        old_state->on_state(machine, event_data);
-    return ESCX_STATUS_PROCESSED;
-}
-
-ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *machine, ESCX_BYTE_T event_id, void *event_data)
-{
-    ESCX_ProcessStatus result;
-    ESCX_ProcessStatus one_result;
-    ESCX_QueuedEvent queued;
-    result = ESCX_Validate(machine);
-    if (result != ESCX_STATUS_PROCESSED) return result;
-    if (machine->running == ESCX_FALSE) return ESCX_STATUS_NOT_RUNNING;
-    if (event_id >= machine->definition->event_count) return ESCX_STATUS_INVALID_EVENT;
-    if (machine->processing != ESCX_FALSE)
-    {
-        return (ESCX_EventQueuePush(&machine->event_queue, event_id, event_data) != ESCX_FALSE) ?
-               ESCX_STATUS_PROCESSED : ESCX_STATUS_QUEUE_FULL;
-    }
-    machine->processing = ESCX_TRUE;
-    result = ESCX_ProcessOne(machine, event_id, event_data);
-    while (ESCX_EventQueuePop(&machine->event_queue, &queued) != ESCX_FALSE)
-    {
-        #if ESCX_ENABLE_EVENT_DATA
-        one_result = ESCX_ProcessOne(machine, queued.event_id, queued.event_data);
+    ESCX_ProcessStatus result,one; ESCX_QueuedEvent q;
+    result=ESCX_Validate(m); if(result!=ESCX_STATUS_PROCESSED) return result;
+    if(m->running==ESCX_FALSE) return ESCX_STATUS_NOT_RUNNING;
+    if(event_id>=m->definition->event_count) return ESCX_STATUS_INVALID_EVENT;
+    if(m->processing!=ESCX_FALSE) return ESCX_EventQueuePush(&m->event_queue,event_id,data)!=ESCX_FALSE?ESCX_STATUS_PROCESSED:ESCX_STATUS_QUEUE_FULL;
+    m->processing=ESCX_TRUE; result=ESCX_ProcessOne(m,event_id,data);
+    while(ESCX_EventQueuePop(&m->event_queue,&q)!=ESCX_FALSE) {
+#if ESCX_ENABLE_EVENT_DATA
+        one=ESCX_ProcessOne(m,q.event_id,q.event_data);
 #else
-        one_result = ESCX_ProcessOne(machine, queued.event_id, (void *)0);
+        one=ESCX_ProcessOne(m,q.event_id,(void *)0);
 #endif
-        if ((result == ESCX_STATUS_IGNORED) && (one_result != ESCX_STATUS_IGNORED)) result = one_result;
+        if((result==ESCX_STATUS_IGNORED)&&(one!=ESCX_STATUS_IGNORED)) result=one;
     }
-    machine->processing = ESCX_FALSE;
-    return result;
+    m->processing=ESCX_FALSE; return result;
 }
-
-ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *machine, int timer_id, void *event_data)
+ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *m,int timer_id,void *data)
 {
-    if (machine == (ESCX_StateMachine *)0) return ESCX_STATUS_INVALID_ARGUMENT;
-    if ((machine->timer_id == ESCX_INVALID_TIMER_ID) || (timer_id != machine->timer_id)) return ESCX_STATUS_IGNORED;
-    return ESCX_StateMachineSend(machine, ESCX_TIMER_EVENT, event_data);
+#if ESCX_ENABLE_TIMERS
+    if(m==(ESCX_StateMachine *)0) return ESCX_STATUS_INVALID_ARGUMENT;
+    if((m->timer_id==ESCX_INVALID_TIMER_ID)||(timer_id!=m->timer_id)) return ESCX_STATUS_IGNORED;
+    return ESCX_StateMachineSend(m,ESCX_TIMER_EVENT,data);
+#else
+    (void)m;(void)timer_id;(void)data;return ESCX_STATUS_IGNORED;
+#endif
 }
-
-ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *machine, ESCX_BYTE_T state_id)
-{
-    if (machine == (const ESCX_StateMachine *)0) return ESCX_FALSE;
-    return ((machine->running != ESCX_FALSE) && (machine->current_state == state_id)) ? ESCX_TRUE : ESCX_FALSE;
-}
+ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *m,ESCX_BYTE_T state)
+{ return ((m!=(const ESCX_StateMachine *)0)&&(m->running!=ESCX_FALSE)&&(m->current_state==state))?ESCX_TRUE:ESCX_FALSE; }

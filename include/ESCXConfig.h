@@ -1,35 +1,27 @@
 #ifndef ESCX_CONFIG_H
 #define ESCX_CONFIG_H
 
-/* Override any setting with compiler -D options or before ESCX headers. */
 #ifndef ESCX_MAX_STATES
-#define ESCX_MAX_STATES 32U
+#define ESCX_MAX_STATES 255U
 #endif
-
 #ifndef ESCX_MAX_EVENTS
-#define ESCX_MAX_EVENTS 32U
+#define ESCX_MAX_EVENTS 255U
 #endif
-
 #ifndef ESCX_MAX_TRANSITIONS
-#define ESCX_MAX_TRANSITIONS 64U
+#define ESCX_MAX_TRANSITIONS 65534UL
 #endif
-
 #ifndef ESCX_QUEUE_SIZE
 #define ESCX_QUEUE_SIZE 4U
 #endif
-
 #ifndef ESCX_ENABLE_EVENT_DATA
 #define ESCX_ENABLE_EVENT_DATA 1
 #endif
-
 #ifndef ESCX_ENABLE_TIMERS
 #define ESCX_ENABLE_TIMERS 1
 #endif
-
 #ifndef ESCX_ENABLE_ASSERTS
 #define ESCX_ENABLE_ASSERTS 1
 #endif
-
 #ifndef ESCX_ENABLE_RUNTIME_CHECKS
 #define ESCX_ENABLE_RUNTIME_CHECKS 1
 #endif
@@ -40,11 +32,8 @@
 #if (ESCX_MAX_EVENTS < 1U) || (ESCX_MAX_EVENTS > 255U)
 #error ESCX_MAX_EVENTS must be between 1 and 255
 #endif
-#if (ESCX_MAX_TRANSITIONS < 1U)
-#error ESCX_MAX_TRANSITIONS must be at least 1
-#endif
-#if (ESCX_QUEUE_SIZE > 255U)
-#error ESCX_QUEUE_SIZE must not exceed 255
+#if (ESCX_QUEUE_SIZE < 1U) || (ESCX_QUEUE_SIZE > 255U)
+#error ESCX_QUEUE_SIZE must be between 1 and 255
 #endif
 #if (ESCX_ENABLE_EVENT_DATA != 0) && (ESCX_ENABLE_EVENT_DATA != 1)
 #error ESCX_ENABLE_EVENT_DATA must be 0 or 1
@@ -54,6 +43,5 @@
 #define ESCX_JOIN(a, b) ESCX_JOIN_INNER(a, b)
 #define ESCX_COMPILE_ASSERT_N(expression, suffix) \
     typedef char ESCX_JOIN(escx_compile_assert_, suffix)[(expression) ? 1 : -1]
-#define ESCX_COMPILE_ASSERT(expression) ESCX_COMPILE_ASSERT_N(expression, __LINE__)
 
 #endif
