@@ -1,19 +1,19 @@
 #ifndef ESCX_STATE_MACHINE_EVENT_QUEUE_H
 #define ESCX_STATE_MACHINE_EVENT_QUEUE_H
 #include "DataTypes.h"
+#include "ESCXConfig.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef ESCX_QUEUE_SIZE
-#define ESCX_QUEUE_SIZE 10U
-#endif
 
 typedef struct ESCX_QueuedEvent
 {
     ESCX_BYTE_T event_id;
+#if ESCX_ENABLE_EVENT_DATA
     void *event_data;
+#endif
 } ESCX_QueuedEvent;
 
 typedef struct ESCX_EventQueue

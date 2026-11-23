@@ -126,7 +126,11 @@ ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *machine, ESCX_BYTE_T
     result = ESCX_ProcessOne(machine, event_id, event_data);
     while (ESCX_EventQueuePop(&machine->event_queue, &queued) != ESCX_FALSE)
     {
+        #if ESCX_ENABLE_EVENT_DATA
         one_result = ESCX_ProcessOne(machine, queued.event_id, queued.event_data);
+#else
+        one_result = ESCX_ProcessOne(machine, queued.event_id, (void *)0);
+#endif
         if ((result == ESCX_STATUS_IGNORED) && (one_result != ESCX_STATUS_IGNORED)) result = one_result;
     }
     machine->processing = ESCX_FALSE;

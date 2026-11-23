@@ -2,6 +2,7 @@
 #define ESCX_STATE_MACHINE_H
 
 #include "DataTypes.h"
+#include "ESCXConfig.h"
 #include "StateMachineEventQueue.h"
 
 #ifdef __cplusplus
@@ -96,6 +97,9 @@ ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *machine, ESCX_BY
 #define ESCX_TRANSITIONS_END() };
 
 #define ESCX_DEFINE_MACHINE(name, initial_state) \
+    ESCX_COMPILE_ASSERT_N((sizeof(name##_states) / sizeof(name##_states[0])) <= ESCX_MAX_STATES, states); \
+    ESCX_COMPILE_ASSERT_N((sizeof(name##_transitions) / sizeof(name##_transitions[0])) <= ESCX_MAX_TRANSITIONS, transitions); \
+    ESCX_COMPILE_ASSERT_N(name##_EVENT_COUNT <= ESCX_MAX_EVENTS, events); \
     static const ESCX_StateMachineDefinition name##_definition = { \
         name##_states, (unsigned int)(sizeof(name##_states) / sizeof(name##_states[0])), \
         name##_transitions, (unsigned int)(sizeof(name##_transitions) / sizeof(name##_transitions[0])), \
