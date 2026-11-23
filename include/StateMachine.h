@@ -31,7 +31,7 @@ typedef struct ESCX_StateDescriptor {
  ESCX_StateFunction on_entry; ESCX_StateFunction on_exit; ESCX_StateFunction on_state;
  ESCX_BYTE_T parent_state; ESCX_UINT16_T first_child_index; ESCX_BYTE_T child_count;
  ESCX_BYTE_T initial_child; ESCX_BYTE_T depth; ESCX_BYTE_T document_order; ESCX_BYTE_T state_type;
- ESCX_UINT16_T eventless_selector;
+ ESCX_UINT16_T eventless_selector; ESCX_BYTE_T done_event;
 } ESCX_StateDescriptor;
 typedef struct ESCX_StatePlan { ESCX_UINT16_T first_state; ESCX_BYTE_T state_count; } ESCX_StatePlan;
 typedef struct ESCX_Transition {
@@ -55,7 +55,7 @@ typedef struct ESCX_StateMachine {
  const ESCX_StateMachineDefinition *definition; void *instance;
  ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
- ESCX_BYTE_T current_event; ESCX_BOOL_T running; ESCX_BOOL_T processing;
+ ESCX_BYTE_T current_event; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
 #if ESCX_ENABLE_TIMERS
  int timer_id; ESCX_StartTimerFunction start_timer; ESCX_CancelTimerFunction cancel_timer;
 #endif
@@ -70,6 +70,7 @@ ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *,ESCX_BYTE_T,void *)
 ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_T,void *);
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,int,void *);
 ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
+ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine *);
 
 #define ESCX_STATE_ENUM_BEGIN(n) typedef enum n##_StateId { n##_NO_STATE=0,
 #define ESCX_STATE_ENUM(v) v,
@@ -78,7 +79,8 @@ ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
 #define ESCX_EVENT_ENUM(v) v,
 #define ESCX_EVENT_ENUM_END(n) n##_EVENT_COUNT } n##_EventId;
 #define ESCX_STATES_BEGIN(n) static const ESCX_StateDescriptor n##_states[] ESCX_ROM={
-#define ESCX_STATE_EX(en,ex,run,parent,first,count,initial,depth,order,type,eventless) {en,ex,run,(ESCX_BYTE_T)(parent),(ESCX_UINT16_T)(first),(ESCX_BYTE_T)(count),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(depth),(ESCX_BYTE_T)(order),(ESCX_BYTE_T)(type),(ESCX_UINT16_T)(eventless)},
+#define ESCX_STATE_EX_DONE(en,ex,run,parent,first,count,initial,depth,order,type,eventless,done_event) {en,ex,run,(ESCX_BYTE_T)(parent),(ESCX_UINT16_T)(first),(ESCX_BYTE_T)(count),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(depth),(ESCX_BYTE_T)(order),(ESCX_BYTE_T)(type),(ESCX_UINT16_T)(eventless),(ESCX_BYTE_T)(done_event)},
+#define ESCX_STATE_EX(en,ex,run,parent,first,count,initial,depth,order,type,eventless) ESCX_STATE_EX_DONE(en,ex,run,parent,first,count,initial,depth,order,type,eventless,ESCX_NO_EVENT)
 #define ESCX_STATE(en,ex,run) ESCX_STATE_EX(en,ex,run,ESCX_NO_STATE,0U,0U,ESCX_NO_STATE,0U,0U,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR)
 #define ESCX_STATES_END() };
 #define ESCX_CHILDREN_BEGIN(n) static const ESCX_BYTE_T n##_children[] ESCX_ROM={
