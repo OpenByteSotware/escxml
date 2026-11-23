@@ -60,6 +60,12 @@
 #error ESCX_ENABLE_ASSERTS must be 0 or 1
 #endif
 
+#ifndef ESCX_MAX_HIERARCHY_DEPTH
+#define ESCX_MAX_HIERARCHY_DEPTH 16U
+#endif
+#if (ESCX_MAX_HIERARCHY_DEPTH < 1U) || (ESCX_MAX_HIERARCHY_DEPTH > 254U)
+#error ESCX_MAX_HIERARCHY_DEPTH must be between 1 and 254
+#endif
 #define ESCX_JOIN_INNER(a, b) a##b
 #define ESCX_JOIN(a, b) ESCX_JOIN_INNER(a, b)
 #define ESCX_COMPILE_ASSERT_N(expression, suffix) \
