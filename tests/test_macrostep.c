@@ -1,0 +1,3 @@
+#include "MacrostepMachine.h"
+#include <stdio.h>
+int main(void){ESCX_StateMachine m;MacroData d;ESCX_BYTE_T bits[ESCX_ACTIVE_BYTES(MacrostepMachine_STATE_COUNT)];d.count=0;d.allow_eventless=1;MacrostepMachine_Init(&m,&d,bits,(ESCX_BYTE_T)sizeof(bits),(ESCX_StartTimerFunction)0,(ESCX_CancelTimerFunction)0);if(ESCX_StateMachineStart(&m)!=ESCX_STATUS_PROCESSED)return 1;if(!ESCX_StateMachineIsInState(&m,MS_Idle))return 2;if(ESCX_StateMachineSend(&m,MS_Start,(void*)0)!=ESCX_STATUS_PROCESSED)return 3;if(!ESCX_StateMachineIsInState(&m,MS_Done))return 4;if(d.count<7)return 5;if(d.log[0]!=1||d.log[1]!=2||d.log[2]!=-2||d.log[3]!=3||d.log[4]!=8||d.log[5]!=-3||d.log[6]!=4)return 6;printf("macrostep tests passed\n");return 0;}

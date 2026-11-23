@@ -25,27 +25,20 @@ typedef ESCX_UINT16_T (*ESCX_SelectorFunction)(struct ESCX_StateMachine *, void 
 typedef int (*ESCX_StartTimerFunction)(struct ESCX_StateMachine *, const char *, int, int);
 typedef int (*ESCX_CancelTimerFunction)(struct ESCX_StateMachine *, const char *, int);
 
-typedef enum ESCX_StateType {
- ESCX_STATE_ATOMIC=0, ESCX_STATE_COMPOUND=1, ESCX_STATE_PARALLEL=2,
- ESCX_STATE_FINAL=3, ESCX_STATE_HISTORY_SHALLOW=4, ESCX_STATE_HISTORY_DEEP=5
-} ESCX_StateType;
-typedef enum ESCX_TransitionType {
- ESCX_TRANSITION_EXTERNAL=0, ESCX_TRANSITION_INTERNAL=1, ESCX_TRANSITION_TARGETLESS=2
-} ESCX_TransitionType;
-
+typedef enum ESCX_StateType { ESCX_STATE_ATOMIC=0, ESCX_STATE_COMPOUND=1, ESCX_STATE_PARALLEL=2, ESCX_STATE_FINAL=3, ESCX_STATE_HISTORY_SHALLOW=4, ESCX_STATE_HISTORY_DEEP=5 } ESCX_StateType;
+typedef enum ESCX_TransitionType { ESCX_TRANSITION_EXTERNAL=0, ESCX_TRANSITION_INTERNAL=1, ESCX_TRANSITION_TARGETLESS=2 } ESCX_TransitionType;
 typedef struct ESCX_StateDescriptor {
  ESCX_StateFunction on_entry; ESCX_StateFunction on_exit; ESCX_StateFunction on_state;
  ESCX_BYTE_T parent_state; ESCX_UINT16_T first_child_index; ESCX_BYTE_T child_count;
  ESCX_BYTE_T initial_child; ESCX_BYTE_T depth; ESCX_BYTE_T document_order; ESCX_BYTE_T state_type;
+ ESCX_UINT16_T eventless_selector;
 } ESCX_StateDescriptor;
 typedef struct ESCX_StatePlan { ESCX_UINT16_T first_state; ESCX_BYTE_T state_count; } ESCX_StatePlan;
-typedef struct ESCX_Transition {
- ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action; ESCX_BYTE_T type;
-} ESCX_Transition;
+typedef struct ESCX_Transition { ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action; ESCX_BYTE_T type; } ESCX_Transition;
 typedef enum ESCX_ProcessStatus {
  ESCX_STATUS_IGNORED=0, ESCX_STATUS_PROCESSED=1, ESCX_STATUS_INVALID_EVENT=2,
  ESCX_STATUS_NOT_RUNNING=3, ESCX_STATUS_QUEUE_FULL=4, ESCX_STATUS_INVALID_ARGUMENT=5,
- ESCX_STATUS_HIERARCHY_LIMIT=6
+ ESCX_STATUS_HIERARCHY_LIMIT=6, ESCX_STATUS_MICROSTEP_LIMIT=7
 } ESCX_ProcessStatus;
 typedef struct ESCX_StateMachineDefinition {
  const ESCX_StateDescriptor *states; const ESCX_BYTE_T *children;
@@ -62,13 +55,15 @@ typedef struct ESCX_StateMachine {
 #if ESCX_ENABLE_TIMERS
  int timer_id; ESCX_StartTimerFunction start_timer; ESCX_CancelTimerFunction cancel_timer;
 #endif
- ESCX_EventQueue event_queue;
+ ESCX_EventQueue internal_queue;
+ ESCX_EventQueue external_queue;
 } ESCX_StateMachine;
 
 void ESCX_StateMachineInit(ESCX_StateMachine *,const ESCX_StateMachineDefinition *,void *,ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_StartTimerFunction,ESCX_CancelTimerFunction);
 ESCX_ProcessStatus ESCX_StateMachineStart(ESCX_StateMachine *);
 void ESCX_StateMachineStop(ESCX_StateMachine *);
 ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *,ESCX_BYTE_T,void *);
+ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_T,void *);
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,int,void *);
 ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
 
@@ -79,8 +74,8 @@ ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
 #define ESCX_EVENT_ENUM(v) v,
 #define ESCX_EVENT_ENUM_END(n) n##_EVENT_COUNT } n##_EventId;
 #define ESCX_STATES_BEGIN(n) static const ESCX_StateDescriptor n##_states[] ESCX_ROM={
-#define ESCX_STATE_EX(en,ex,run,parent,first,count,initial,depth,order,type) {en,ex,run,(ESCX_BYTE_T)(parent),(ESCX_UINT16_T)(first),(ESCX_BYTE_T)(count),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(depth),(ESCX_BYTE_T)(order),(ESCX_BYTE_T)(type)},
-#define ESCX_STATE(en,ex,run) ESCX_STATE_EX(en,ex,run,ESCX_NO_STATE,0U,0U,ESCX_NO_STATE,0U,0U,ESCX_STATE_ATOMIC)
+#define ESCX_STATE_EX(en,ex,run,parent,first,count,initial,depth,order,type,eventless) {en,ex,run,(ESCX_BYTE_T)(parent),(ESCX_UINT16_T)(first),(ESCX_BYTE_T)(count),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(depth),(ESCX_BYTE_T)(order),(ESCX_BYTE_T)(type),(ESCX_UINT16_T)(eventless)},
+#define ESCX_STATE(en,ex,run) ESCX_STATE_EX(en,ex,run,ESCX_NO_STATE,0U,0U,ESCX_NO_STATE,0U,0U,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR)
 #define ESCX_STATES_END() };
 #define ESCX_CHILDREN_BEGIN(n) static const ESCX_BYTE_T n##_children[] ESCX_ROM={
 #define ESCX_CHILD(v) (ESCX_BYTE_T)(v),

@@ -66,6 +66,13 @@
 #if (ESCX_MAX_HIERARCHY_DEPTH < 1U) || (ESCX_MAX_HIERARCHY_DEPTH > 254U)
 #error ESCX_MAX_HIERARCHY_DEPTH must be between 1 and 254
 #endif
+
+#ifndef ESCX_MAX_MICROSTEPS
+#define ESCX_MAX_MICROSTEPS 64U
+#endif
+#if (ESCX_MAX_MICROSTEPS < 1U) || (ESCX_MAX_MICROSTEPS > 65535U)
+#error ESCX_MAX_MICROSTEPS must be between 1 and 65535
+#endif
 #define ESCX_JOIN_INNER(a, b) a##b
 #define ESCX_JOIN(a, b) ESCX_JOIN_INNER(a, b)
 #define ESCX_COMPILE_ASSERT_N(expression, suffix) \
