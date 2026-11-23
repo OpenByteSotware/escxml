@@ -1,0 +1,13 @@
+#ifndef HISTORY_MACHINE_H
+#define HISTORY_MACHINE_H
+#include "StateMachine.h"
+typedef struct HistoryData { int value; } HistoryData;
+ESCX_STATE_ENUM_BEGIN(HistoryMachine)
+ ESCX_STATE_ENUM(HM_Root) ESCX_STATE_ENUM(HM_Group) ESCX_STATE_ENUM(HM_Nested) ESCX_STATE_ENUM(HM_A) ESCX_STATE_ENUM(HM_B)
+ ESCX_STATE_ENUM(HM_Shallow) ESCX_STATE_ENUM(HM_Deep) ESCX_STATE_ENUM(HM_Outside)
+ESCX_STATE_ENUM_END(HistoryMachine)
+ESCX_EVENT_ENUM_BEGIN(HistoryMachine)
+ ESCX_EVENT_ENUM(HM_Next) ESCX_EVENT_ENUM(HM_Leave) ESCX_EVENT_ENUM(HM_ReturnShallow) ESCX_EVENT_ENUM(HM_ReturnDeep)
+ESCX_EVENT_ENUM_END(HistoryMachine)
+ESCX_DECLARE_MACHINE(HistoryMachine);
+#endif

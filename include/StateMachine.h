@@ -16,6 +16,7 @@ extern "C" {
 #define ESCX_NO_TRANSITION ESCX_INVALID_INDEX
 #define ESCX_NO_PLAN ESCX_INVALID_INDEX
 #define ESCX_INVALID_TIMER_ID (-1)
+#define ESCX_NO_HISTORY_SLOT ((ESCX_BYTE_T)255U)
 #define ESCX_ACTIVE_BYTES(count) (((count) + 7U) / 8U)
 
 struct ESCX_StateMachine;
@@ -31,8 +32,9 @@ typedef struct ESCX_StateDescriptor {
  ESCX_StateFunction on_entry; ESCX_StateFunction on_exit; ESCX_StateFunction on_state;
  ESCX_BYTE_T parent_state; ESCX_UINT16_T first_child_index; ESCX_BYTE_T child_count;
  ESCX_BYTE_T initial_child; ESCX_BYTE_T depth; ESCX_BYTE_T document_order; ESCX_BYTE_T state_type;
- ESCX_UINT16_T eventless_selector; ESCX_BYTE_T done_event;
+ ESCX_UINT16_T eventless_selector; ESCX_BYTE_T done_event; ESCX_BYTE_T history_slot; ESCX_UINT16_T history_default_plan;
 } ESCX_StateDescriptor;
+typedef struct ESCX_HistoryStorage { ESCX_BYTE_T *valid; ESCX_BYTE_T *bits; ESCX_BYTE_T slot_count; ESCX_BYTE_T bytes_per_slot; } ESCX_HistoryStorage;
 typedef struct ESCX_StatePlan { ESCX_UINT16_T first_state; ESCX_BYTE_T state_count; } ESCX_StatePlan;
 typedef struct ESCX_Transition {
  ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action;
@@ -56,6 +58,7 @@ typedef struct ESCX_StateMachine {
  ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
+ ESCX_HistoryStorage *history;
 #if ESCX_ENABLE_TIMERS
  int timer_id; ESCX_StartTimerFunction start_timer; ESCX_CancelTimerFunction cancel_timer;
 #endif
@@ -63,7 +66,7 @@ typedef struct ESCX_StateMachine {
  ESCX_EventQueue external_queue;
 } ESCX_StateMachine;
 
-void ESCX_StateMachineInit(ESCX_StateMachine *,const ESCX_StateMachineDefinition *,void *,ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_StartTimerFunction,ESCX_CancelTimerFunction);
+void ESCX_StateMachineInit(ESCX_StateMachine *,const ESCX_StateMachineDefinition *,void *,ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_HistoryStorage *,ESCX_StartTimerFunction,ESCX_CancelTimerFunction);
 ESCX_ProcessStatus ESCX_StateMachineStart(ESCX_StateMachine *);
 void ESCX_StateMachineStop(ESCX_StateMachine *);
 ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *,ESCX_BYTE_T,void *);
@@ -79,7 +82,9 @@ ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine *);
 #define ESCX_EVENT_ENUM(v) v,
 #define ESCX_EVENT_ENUM_END(n) n##_EVENT_COUNT } n##_EventId;
 #define ESCX_STATES_BEGIN(n) static const ESCX_StateDescriptor n##_states[] ESCX_ROM={
-#define ESCX_STATE_EX_DONE(en,ex,run,parent,first,count,initial,depth,order,type,eventless,done_event) {en,ex,run,(ESCX_BYTE_T)(parent),(ESCX_UINT16_T)(first),(ESCX_BYTE_T)(count),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(depth),(ESCX_BYTE_T)(order),(ESCX_BYTE_T)(type),(ESCX_UINT16_T)(eventless),(ESCX_BYTE_T)(done_event)},
+#define ESCX_STATE_EX_HISTORY(en,ex,run,parent,first,count,initial,depth,order,type,eventless,done_event,history_slot,history_default_plan) {en,ex,run,(ESCX_BYTE_T)(parent),(ESCX_UINT16_T)(first),(ESCX_BYTE_T)(count),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(depth),(ESCX_BYTE_T)(order),(ESCX_BYTE_T)(type),(ESCX_UINT16_T)(eventless),(ESCX_BYTE_T)(done_event),(ESCX_BYTE_T)(history_slot),(ESCX_UINT16_T)(history_default_plan)},
+#define ESCX_STATE_EX_DONE(en,ex,run,parent,first,count,initial,depth,order,type,eventless,done_event) ESCX_STATE_EX_HISTORY(en,ex,run,parent,first,count,initial,depth,order,type,eventless,done_event,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN)
+#define ESCX_HISTORY_STATE(parent,depth,order,type,slot,default_plan) ESCX_STATE_EX_HISTORY((ESCX_StateFunction)0,(ESCX_StateFunction)0,(ESCX_StateFunction)0,parent,0U,0U,ESCX_NO_STATE,depth,order,type,ESCX_NO_SELECTOR,ESCX_NO_EVENT,slot,default_plan)
 #define ESCX_STATE_EX(en,ex,run,parent,first,count,initial,depth,order,type,eventless) ESCX_STATE_EX_DONE(en,ex,run,parent,first,count,initial,depth,order,type,eventless,ESCX_NO_EVENT)
 #define ESCX_STATE(en,ex,run) ESCX_STATE_EX(en,ex,run,ESCX_NO_STATE,0U,0U,ESCX_NO_STATE,0U,0U,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR)
 #define ESCX_STATES_END() };
@@ -122,8 +127,8 @@ ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine *);
  ESCX_COMPILE_ASSERT_N((sizeof(n##_state_base)/sizeof(n##_state_base[0]))==(sizeof(n##_states)/sizeof(n##_states[0])),bases); \
  ESCX_COMPILE_ASSERT_N((sizeof(n##_slot_owner)/sizeof(n##_slot_owner[0]))==(sizeof(n##_slot_selector)/sizeof(n##_slot_selector[0])),slots); \
  static const ESCX_StateMachineDefinition n##_definition={n##_states,n##_children,n##_transitions,n##_plans,n##_plan_states,n##_selectors,n##_state_base,n##_slot_owner,n##_slot_selector,(ESCX_UINT16_T)(sizeof(n##_states)/sizeof(n##_states[0])),(ESCX_UINT16_T)(sizeof(n##_children)/sizeof(n##_children[0])),(ESCX_UINT16_T)(sizeof(n##_transitions)/sizeof(n##_transitions[0])),(ESCX_UINT16_T)(sizeof(n##_plans)/sizeof(n##_plans[0])),(ESCX_UINT16_T)(sizeof(n##_plan_states)/sizeof(n##_plan_states[0])),(ESCX_UINT16_T)(sizeof(n##_selectors)/sizeof(n##_selectors[0])),(ESCX_UINT16_T)(sizeof(n##_slot_owner)/sizeof(n##_slot_owner[0])),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(n##_EVENT_COUNT)}
-#define ESCX_DECLARE_MACHINE(n) void n##_Init(ESCX_StateMachine *,void *,ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_StartTimerFunction,ESCX_CancelTimerFunction)
-#define ESCX_IMPLEMENT_MACHINE(n) void n##_Init(ESCX_StateMachine*m,void*i,ESCX_BYTE_T*b,ESCX_BYTE_T z,ESCX_StartTimerFunction s,ESCX_CancelTimerFunction c){ESCX_StateMachineInit(m,&n##_definition,i,b,z,s,c);}
+#define ESCX_DECLARE_MACHINE(n) void n##_Init(ESCX_StateMachine *,void *,ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_HistoryStorage *,ESCX_StartTimerFunction,ESCX_CancelTimerFunction)
+#define ESCX_IMPLEMENT_MACHINE(n) void n##_Init(ESCX_StateMachine*m,void*i,ESCX_BYTE_T*b,ESCX_BYTE_T z,ESCX_HistoryStorage*h,ESCX_StartTimerFunction s,ESCX_CancelTimerFunction c){ESCX_StateMachineInit(m,&n##_definition,i,b,z,h,s,c);}
 #ifdef __cplusplus
 }
 #endif
