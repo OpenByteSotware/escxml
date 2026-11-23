@@ -1,0 +1,35 @@
+#ifndef ESCX_STATE_MACHINE_EVENT_QUEUE_H
+#define ESCX_STATE_MACHINE_EVENT_QUEUE_H
+#include "DataTypes.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef ESCX_QUEUE_SIZE
+#define ESCX_QUEUE_SIZE 10U
+#endif
+
+typedef struct ESCX_QueuedEvent
+{
+    ESCX_BYTE_T event_id;
+    void *event_data;
+} ESCX_QueuedEvent;
+
+typedef struct ESCX_EventQueue
+{
+    ESCX_QueuedEvent items[ESCX_QUEUE_SIZE];
+    unsigned int front;
+    unsigned int count;
+} ESCX_EventQueue;
+
+void ESCX_EventQueueInit(ESCX_EventQueue *queue);
+ESCX_BOOL_T ESCX_EventQueueIsEmpty(const ESCX_EventQueue *queue);
+ESCX_BOOL_T ESCX_EventQueueIsFull(const ESCX_EventQueue *queue);
+ESCX_BOOL_T ESCX_EventQueuePush(ESCX_EventQueue *queue, ESCX_BYTE_T event_id, void *event_data);
+ESCX_BOOL_T ESCX_EventQueuePop(ESCX_EventQueue *queue, ESCX_QueuedEvent *event_out);
+
+#ifdef __cplusplus
+}
+#endif
+#endif
