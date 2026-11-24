@@ -54,6 +54,10 @@ typedef struct ESCX_Event {
  ESCX_BYTE_T name_id; ESCX_BYTE_T type; ESCX_BYTE_T origin_type;
  ESCX_BYTE_T invoke_id; ESCX_UINT16_T send_id; void *data;
 } ESCX_Event;
+typedef struct ESCX_SystemContext {
+ ESCX_UINT16_T session_id; ESCX_UINT16_T machine_name_id;
+ const void *io_processors; void *platform_data;
+} ESCX_SystemContext;
 typedef enum ESCX_DataBinding { ESCX_DATA_BINDING_EARLY=0, ESCX_DATA_BINDING_LATE=1 } ESCX_DataBinding;
   typedef enum ESCX_StateType { ESCX_STATE_ATOMIC=0, ESCX_STATE_COMPOUND=1, ESCX_STATE_PARALLEL=2, ESCX_STATE_FINAL=3, ESCX_STATE_HISTORY_SHALLOW=4, ESCX_STATE_HISTORY_DEEP=5 } ESCX_StateType;
 typedef enum ESCX_TransitionType { ESCX_TRANSITION_EXTERNAL=0, ESCX_TRANSITION_INTERNAL=1, ESCX_TRANSITION_TARGETLESS=2 } ESCX_TransitionType;
@@ -146,6 +150,7 @@ typedef struct ESCX_StateMachine {
  const ESCX_FastDispatch *fast_dispatch; const ESCX_ConflictMap *conflict_map; ESCX_MicrostepWorkspace *workspace;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor;
+ ESCX_SystemContext system_context;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
    ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
  ESCX_HistoryStorage *history;
@@ -170,6 +175,8 @@ ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *,ESCX_BYTE_T,void *)
 ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_T,void *);
   ESCX_ProcessStatus ESCX_StateMachineRaiseEvent(ESCX_StateMachine *,const ESCX_Event *);
   const ESCX_Event *ESCX_StateMachineGetCurrentEvent(const ESCX_StateMachine *);
+ESCX_ProcessStatus ESCX_StateMachineConfigureSystemContext(ESCX_StateMachine *,const ESCX_SystemContext *);
+ const ESCX_SystemContext *ESCX_StateMachineGetSystemContext(const ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureEventMatching(ESCX_StateMachine *,const ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_BYTE_T);
   ESCX_ProcessStatus ESCX_StateMachineConfigureDataBinding(ESCX_StateMachine *,ESCX_DataBinding,ESCX_BYTE_T *,ESCX_BYTE_T);
  ESCX_ProcessStatus ESCX_StateMachineConfigureCompletionStorage(ESCX_StateMachine *,ESCX_BYTE_T *,ESCX_BYTE_T);

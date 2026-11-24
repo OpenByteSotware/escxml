@@ -116,7 +116,7 @@ void ESCX_StateMachineInit(ESCX_StateMachine*m,const ESCX_StateMachineDefinition
 #if ESCX_ENABLE_DELAYED_SENDS
 {ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;}}
 #endif
-m->active_bits=b;m->active_byte_count=z;m->fast_dispatch=(const ESCX_FastDispatch*)0;m->conflict_map=(const ESCX_ConflictMap*)0;m->workspace=(ESCX_MicrostepWorkspace*)0;m->completion_bits=(ESCX_BYTE_T*)0;m->completion_byte_count=0U;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->event_parent=(const ESCX_BYTE_T*)0;m->event_parent_count=0U;m->wildcard_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->reporting_error=ESCX_FALSE;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;m->finish_pending=ESCX_FALSE;
+m->active_bits=b;m->active_byte_count=z;m->fast_dispatch=(const ESCX_FastDispatch*)0;m->conflict_map=(const ESCX_ConflictMap*)0;m->workspace=(ESCX_MicrostepWorkspace*)0;m->completion_bits=(ESCX_BYTE_T*)0;m->completion_byte_count=0U;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->system_context.session_id=0U;m->system_context.machine_name_id=0U;m->system_context.io_processors=(const void*)0;m->system_context.platform_data=(void*)0;m->event_parent=(const ESCX_BYTE_T*)0;m->event_parent_count=0U;m->wildcard_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->reporting_error=ESCX_FALSE;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;m->finish_pending=ESCX_FALSE;
 #if ESCX_ENABLE_TIMERS
 m->start_timer=st;m->cancel_timer=ct;m->timer_context=(void*)0;
 #else
@@ -310,6 +310,17 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureEventMatching(ESCX_StateMachine*m,c
  if((wildcard_event!=ESCX_NO_EVENT)&&(wildcard_event>=m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
  for(i=0U;i<m->definition->event_count;++i){parent=ESCX_ROM_READ_U8(&parents[i]);if((parent!=ESCX_NO_EVENT)&&(parent>=m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;}
  m->event_parent=parents;m->event_parent_count=count;m->wildcard_event=wildcard_event;return ESCX_STATUS_PROCESSED;
+}
+ESCX_ProcessStatus ESCX_StateMachineConfigureSystemContext(ESCX_StateMachine*m,const ESCX_SystemContext*context)
+{
+ if((m==(ESCX_StateMachine*)0)||(context==(const ESCX_SystemContext*)0))return ESCX_STATUS_INVALID_ARGUMENT;
+ if(m->running!=ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
+ m->system_context=*context;return ESCX_STATUS_PROCESSED;
+}
+const ESCX_SystemContext *ESCX_StateMachineGetSystemContext(const ESCX_StateMachine*m)
+{
+ if(m==(const ESCX_StateMachine*)0)return (const ESCX_SystemContext*)0;
+ return &m->system_context;
 }
 static void SetCurrentEvent(ESCX_StateMachine*m,const ESCX_Event*event)
 {
