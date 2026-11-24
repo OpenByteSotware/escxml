@@ -23,7 +23,7 @@ TEST(ErrorEventContext, DeliversPlatformEventWithStructuredData)
 		ESCX_NO_INVOKE,44,&payload }; ESCX_StateMachineInit(&m, &df, &d, b, 1, 0, 0, 0); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureErrorEvents(&m, 2, 3)); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&m)); 
-	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineSendEvent(&m, &trigger)); 
+	ASSERT_EQ(ESCX_STATUS_IGNORED, ESCX_StateMachineSendEvent(&m, &trigger)); 
 	EXPECT_EQ(ESCX_STATUS_INVALID_TARGET, ESCX_StateMachineReportError(&m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_TARGET)); 
 	ASSERT_EQ(1, d.actions); 
 	EXPECT_EQ(ESCX_EVENT_TYPE_PLATFORM, d.seen.type); 

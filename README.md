@@ -51,3 +51,7 @@ The package tests switch-selected transitions, an unconditional selector, and th
 cmake -S . -B build-vs -G "Visual Studio 18 2026"
 
 cmake -S . -B build-vs -G "Visual Studio 18 2026" -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DESCX_BUILD_TESTS=ON
+
+### Stage 35: generated ordered history maps
+
+Optional `ESCX_HistoryMap` tables let generated code enumerate only the states relevant to each history slot. Capture and restore avoid whole-machine state scans, and deep restoration follows generator-supplied entry order. The legacy scan path remains available when no map is configured.

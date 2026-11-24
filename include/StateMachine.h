@@ -74,6 +74,10 @@ typedef struct ESCX_StateDescriptor {
  ESCX_UINT16_T initial_entry_plan_encoded;
 } ESCX_StateDescriptor;
 typedef struct ESCX_HistoryStorage { ESCX_BYTE_T *valid; ESCX_BYTE_T *bits; ESCX_BYTE_T slot_count; ESCX_BYTE_T bytes_per_slot; } ESCX_HistoryStorage;
+typedef struct ESCX_HistoryMap {
+ const ESCX_UINT16_T *slot_first; const ESCX_BYTE_T *slot_count;
+ const ESCX_BYTE_T *states; ESCX_UINT16_T state_count; ESCX_BYTE_T slot_count_total;
+} ESCX_HistoryMap;
 typedef struct ESCX_StatePlan { ESCX_UINT16_T first_state; ESCX_BYTE_T state_count; } ESCX_StatePlan;
 typedef struct ESCX_Transition {
  ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action;
@@ -169,7 +173,7 @@ typedef struct ESCX_StateMachine {
  ESCX_IOProcessorSendFunction io_processor_send; void *io_processor_context;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
    ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_ErrorEventData error_event_data; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
- ESCX_HistoryStorage *history;
+ ESCX_HistoryStorage *history; const ESCX_HistoryMap *history_map;
    ESCX_BYTE_T data_binding; ESCX_BYTE_T *data_initialized_bits; ESCX_BYTE_T data_initialized_byte_count;
  const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
    struct ESCX_StateMachine *parent_machine; ESCX_BYTE_T parent_invoke_id;
@@ -195,6 +199,7 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureSystemContext(ESCX_StateMachine *,c
  const ESCX_SystemContext *ESCX_StateMachineGetSystemContext(const ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureEventMatching(ESCX_StateMachine *,const ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_BYTE_T);
   ESCX_ProcessStatus ESCX_StateMachineConfigureDataBinding(ESCX_StateMachine *,ESCX_DataBinding,ESCX_BYTE_T *,ESCX_BYTE_T);
+ ESCX_ProcessStatus ESCX_StateMachineConfigureHistoryMap(ESCX_StateMachine *,const ESCX_HistoryMap *);
  ESCX_ProcessStatus ESCX_StateMachineConfigureCompletionStorage(ESCX_StateMachine *,ESCX_BYTE_T *,ESCX_BYTE_T);
  ESCX_ProcessStatus ESCX_StateMachineConfigureFastDispatch(ESCX_StateMachine *,const ESCX_FastDispatch *);
  ESCX_ProcessStatus ESCX_StateMachineConfigureConflictMap(ESCX_StateMachine *,const ESCX_ConflictMap *);
@@ -317,6 +322,16 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
 #define ESCX_FAST_EVENTLESS_SELECTOR(v) (ESCX_UINT16_T)(v),
 #define ESCX_FAST_EVENTLESS_END() };
 #define ESCX_DEFINE_FAST_DISPATCH_EVENTLESS(n) static const ESCX_FastDispatch n##_fast_dispatch={n##_fast_state_base,n##_fast_slot_owner,n##_fast_slot_selector,(ESCX_UINT16_T)(sizeof(n##_fast_slot_owner)/sizeof(n##_fast_slot_owner[0])),n##_fast_eventless_selector,(ESCX_UINT16_T)(sizeof(n##_fast_eventless_selector)/sizeof(n##_fast_eventless_selector[0]))}
+#define ESCX_HISTORY_SLOT_FIRST_BEGIN(n) static const ESCX_UINT16_T n##_history_slot_first[] ESCX_ROM={
+#define ESCX_HISTORY_SLOT_FIRST(v) (ESCX_UINT16_T)(v),
+#define ESCX_HISTORY_SLOT_FIRST_END() };
+#define ESCX_HISTORY_SLOT_COUNT_BEGIN(n) static const ESCX_BYTE_T n##_history_slot_count[] ESCX_ROM={
+#define ESCX_HISTORY_SLOT_COUNT(v) (ESCX_BYTE_T)(v),
+#define ESCX_HISTORY_SLOT_COUNT_END() };
+#define ESCX_HISTORY_STATES_BEGIN(n) static const ESCX_BYTE_T n##_history_states[] ESCX_ROM={
+#define ESCX_HISTORY_MAP_STATE(v) (ESCX_BYTE_T)(v),
+#define ESCX_HISTORY_STATES_END() };
+#define ESCX_DEFINE_HISTORY_MAP(n) static const ESCX_HistoryMap n##_history_map={n##_history_slot_first,n##_history_slot_count,n##_history_states,(ESCX_UINT16_T)(sizeof(n##_history_states)/sizeof(n##_history_states[0])),(ESCX_BYTE_T)(sizeof(n##_history_slot_first)/sizeof(n##_history_slot_first[0]))}
 #define ESCX_DECLARE_WORKSPACE(n,exit_capacity,entry_capacity,state_count) \
  static ESCX_BYTE_T n##_exit_states[(exit_capacity)]; \
  static ESCX_BYTE_T n##_entry_states[(entry_capacity)]; \
