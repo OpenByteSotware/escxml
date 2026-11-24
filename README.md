@@ -60,3 +60,8 @@ Optional `ESCX_HistoryMap` tables let generated code enumerate only the states r
 #### Stage 36: generated invoke ownership and deferred startup
 
 Optional `ESCX_InvokeMap` tables provide per-state contiguous invoke ranges. Entry schedules invokes, eventless stabilization completes, and only invokes whose owners remain active are initialized and started. Exit clears pending starts and cancels active invokes before exit content.
+
+
+##### Stage 37: current-event scoping
+
+Eventless selection and executable content now observe a neutral `_event`. The event that drives a macrostep is retained separately as structured triggering-event context, allowing platform errors raised during eventless stabilization to identify the correct external or internal event without leaking that event through `_event`.

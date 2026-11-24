@@ -172,7 +172,7 @@ typedef struct ESCX_StateMachine {
  ESCX_BYTE_T *completion_bits; ESCX_BYTE_T completion_byte_count;
  const ESCX_FastDispatch *fast_dispatch; const ESCX_ConflictMap *conflict_map; ESCX_MicrostepWorkspace *workspace;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
- ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor;
+ ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor; ESCX_Event triggering_event_descriptor; ESCX_BOOL_T has_triggering_event;
  ESCX_SystemContext system_context;
  ESCX_IOProcessorSendFunction io_processor_send; void *io_processor_context;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;

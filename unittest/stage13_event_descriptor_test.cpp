@@ -10,15 +10,15 @@ namespace escx
 				ESCX_Event event; int count;
 			};
 		}
-		TEST_F(ESCXMachineTest, ExternalDescriptorIsAvailableAsCurrentEvent)
+		TEST_F(ESCXMachineTest, CurrentEventIsNeutralAfterExternalMacrostepCompletes)
 		{
 			int payload = 42;
 			ESCX_Event event = { 1,ESCX_EVENT_TYPE_EXTERNAL,ESCX_EVENT_ORIGIN_PLATFORM,ESCX_NO_INVOKE,77,&payload }; EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineSendEvent(&machine, &event)); 
 			const ESCX_Event* current = ESCX_StateMachineGetCurrentEvent(&machine); 
-			ASSERT_NE(nullptr, current); EXPECT_EQ(1, current->name_id); 
-			EXPECT_EQ(ESCX_EVENT_TYPE_EXTERNAL, current->type);
-			EXPECT_EQ(ESCX_EVENT_ORIGIN_PLATFORM, current->origin_type);
-			EXPECT_EQ(77, current->send_id); EXPECT_EQ(&payload, current->data);
+			ASSERT_NE(nullptr, current); EXPECT_EQ(ESCX_NO_EVENT, current->name_id); 
+			EXPECT_EQ(ESCX_EVENT_TYPE_INTERNAL, current->type);
+			EXPECT_EQ(ESCX_EVENT_ORIGIN_NONE, current->origin_type);
+			EXPECT_EQ(ESCX_NO_SEND_ID, current->send_id); EXPECT_EQ(nullptr, current->data);
 		}
 		TEST_F(ESCXMachineTest, InternalDescriptorPreservesInvokeAndSendMetadata)
 		{
