@@ -14,6 +14,10 @@ void ESCX_EventQueueInit(ESCX_EventQueue *queue)
     for (i = 0U; i < (unsigned int)ESCX_QUEUE_SIZE; ++i)
     {
         queue->items[i].event_id = (ESCX_BYTE_T)0U;
+        queue->items[i].event_type = (ESCX_BYTE_T)0U;
+        queue->items[i].origin_type = (ESCX_BYTE_T)0U;
+        queue->items[i].invoke_id = (ESCX_BYTE_T)255U;
+        queue->items[i].send_id = (ESCX_UINT16_T)0U;
 #if ESCX_ENABLE_EVENT_DATA
         queue->items[i].event_data = (void *)0;
 #endif
@@ -40,33 +44,29 @@ ESCX_BOOL_T ESCX_EventQueueIsFull(const ESCX_EventQueue *queue)
     return ((unsigned int)queue->count >= (unsigned int)ESCX_QUEUE_SIZE) ? ESCX_TRUE : ESCX_FALSE;
 }
 
-ESCX_BOOL_T ESCX_EventQueuePush(ESCX_EventQueue *queue, ESCX_BYTE_T event_id, void *event_data)
+ESCX_BOOL_T ESCX_EventQueuePushEx(ESCX_EventQueue *queue, ESCX_BYTE_T event_id,
+    ESCX_BYTE_T event_type, ESCX_BYTE_T origin_type, ESCX_BYTE_T invoke_id,
+    ESCX_UINT16_T send_id, void *event_data)
 {
     unsigned int index;
-    if (queue == (ESCX_EventQueue *)0)
-    {
-        ESCX_ASSERT_TRUE(0);
-        return ESCX_FALSE;
-    }
-    if (ESCX_EventQueueIsFull(queue) != ESCX_FALSE)
-    {
-        return ESCX_FALSE;
-    }
+    if (queue == (ESCX_EventQueue *)0) { ESCX_ASSERT_TRUE(0); return ESCX_FALSE; }
+    if (ESCX_EventQueueIsFull(queue) != ESCX_FALSE) return ESCX_FALSE;
     index = (unsigned int)queue->front + (unsigned int)queue->count;
-    if (index >= (unsigned int)ESCX_QUEUE_SIZE)
-    {
-        index -= (unsigned int)ESCX_QUEUE_SIZE;
-    }
-    queue->items[index].event_id = event_id;
+    if (index >= (unsigned int)ESCX_QUEUE_SIZE) index -= (unsigned int)ESCX_QUEUE_SIZE;
+    queue->items[index].event_id=event_id; queue->items[index].event_type=event_type;
+    queue->items[index].origin_type=origin_type; queue->items[index].invoke_id=invoke_id;
+    queue->items[index].send_id=send_id;
 #if ESCX_ENABLE_EVENT_DATA
-    queue->items[index].event_data = event_data;
+    queue->items[index].event_data=event_data;
 #else
     (void)event_data;
 #endif
-    queue->count = (ESCX_BYTE_T)((unsigned int)queue->count + 1U);
-    return ESCX_TRUE;
+    queue->count=(ESCX_BYTE_T)((unsigned int)queue->count+1U); return ESCX_TRUE;
 }
-
+ESCX_BOOL_T ESCX_EventQueuePush(ESCX_EventQueue *queue, ESCX_BYTE_T event_id, void *event_data)
+{
+    return ESCX_EventQueuePushEx(queue,event_id,1U,0U,255U,0U,event_data);
+}
 ESCX_BOOL_T ESCX_EventQueuePop(ESCX_EventQueue *queue, ESCX_QueuedEvent *event_out)
 {
     unsigned int next_front;
