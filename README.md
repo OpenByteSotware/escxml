@@ -65,3 +65,8 @@ Optional `ESCX_InvokeMap` tables provide per-state contiguous invoke ranges. Ent
 ##### Stage 37: current-event scoping
 
 Eventless selection and executable content now observe a neutral `_event`. The event that drives a macrostep is retained separately as structured triggering-event context, allowing platform errors raised during eventless stabilization to identify the correct external or internal event without leaking that event through `_event`.
+
+
+####### Stage 38: generated complete-configuration exit order
+
+An optional `ESCX_ExitOrder` gives termination and explicit stop a generated deepest-first, reverse-document-order state sequence. The stop path performs one bounded pass over this ROM table, exits only active states, and avoids repeated whole-definition scans. The legacy scan remains available when no exit order is configured.
