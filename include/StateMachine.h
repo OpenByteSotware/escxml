@@ -20,6 +20,7 @@ typedef signed long ESCX_TimerId;
 #define ESCX_NO_HISTORY_SLOT ((ESCX_BYTE_T)255U)
 #define ESCX_NO_INVOKE ((ESCX_BYTE_T)255U)
 #define ESCX_NO_SEND_ID ((ESCX_UINT16_T)0U)
+#define ESCX_NO_EVENT_PARENT ESCX_NO_EVENT
 #define ESCX_ACTIVE_BYTES(count) (((count) + 7U) / 8U)
 
 struct ESCX_StateMachine;
@@ -103,7 +104,8 @@ typedef struct ESCX_StateMachine {
  const ESCX_StateMachineDefinition *definition; void *instance;
  ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
- ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
+ ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor;
+   const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
    ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
  ESCX_HistoryStorage *history;
  const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
@@ -126,6 +128,7 @@ ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *,ESCX_BYTE_T,void *)
 ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_T,void *);
   ESCX_ProcessStatus ESCX_StateMachineRaiseEvent(ESCX_StateMachine *,const ESCX_Event *);
   const ESCX_Event *ESCX_StateMachineGetCurrentEvent(const ESCX_StateMachine *);
+  ESCX_ProcessStatus ESCX_StateMachineConfigureEventMatching(ESCX_StateMachine *,const ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,ESCX_TimerId);
 ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine *,ESCX_StartTimerFunction,ESCX_CancelTimerFunction,void *);
 ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
@@ -151,6 +154,9 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
 #define ESCX_EVENT_ENUM_BEGIN(n) typedef enum n##_EventId { n##_TIMER_EVENT=0,
 #define ESCX_EVENT_ENUM(v) v,
 #define ESCX_EVENT_ENUM_END(n) n##_EVENT_COUNT } n##_EventId;
+  #define ESCX_EVENT_PARENTS_BEGIN(n) static const ESCX_BYTE_T n##_event_parents[] ESCX_ROM={
+  #define ESCX_EVENT_PARENT(v) (ESCX_BYTE_T)(v),
+  #define ESCX_EVENT_PARENTS_END() };
 #define ESCX_STATES_BEGIN(n) static const ESCX_StateDescriptor n##_states[] ESCX_ROM={
 #define ESCX_STATE_EX_HISTORY(en,ex,run,parent,first,count,initial,depth,order,type,eventless,done_event,history_slot,history_default_plan) {en,ex,run,(ESCX_BYTE_T)(parent),(ESCX_UINT16_T)(first),(ESCX_BYTE_T)(count),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(depth),(ESCX_BYTE_T)(order),(ESCX_BYTE_T)(type),(ESCX_UINT16_T)(eventless),(ESCX_BYTE_T)(done_event),(ESCX_BYTE_T)(history_slot),(ESCX_UINT16_T)(history_default_plan)},
 #define ESCX_STATE_EX_DONE(en,ex,run,parent,first,count,initial,depth,order,type,eventless,done_event) ESCX_STATE_EX_HISTORY(en,ex,run,parent,first,count,initial,depth,order,type,eventless,done_event,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN)
