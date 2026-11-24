@@ -108,10 +108,20 @@ typedef struct ESCX_StateMachineDefinition {
  ESCX_UINT16_T state_count, child_count, transition_count, plan_count, plan_state_count;
  ESCX_UINT16_T selector_count, slot_count; ESCX_BYTE_T initial_state, event_count;
 } ESCX_StateMachineDefinition;
+typedef struct ESCX_MicrostepWorkspace {
+ ESCX_BYTE_T *exit_states; ESCX_BYTE_T exit_capacity; ESCX_BYTE_T exit_count;
+ ESCX_BYTE_T *entry_states; ESCX_BYTE_T entry_capacity; ESCX_BYTE_T entry_count;
+ ESCX_BYTE_T *exit_seen; ESCX_BYTE_T *entry_seen; ESCX_BYTE_T seen_byte_count;
+} ESCX_MicrostepWorkspace;
+typedef struct ESCX_FastDispatch {
+ const ESCX_UINT16_T *state_base; const ESCX_BYTE_T *slot_owner;
+ const ESCX_UINT16_T *slot_selector; ESCX_UINT16_T slot_count;
+} ESCX_FastDispatch;
 typedef struct ESCX_StateMachine {
  const ESCX_StateMachineDefinition *definition; void *instance;
  ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
  ESCX_BYTE_T *completion_bits; ESCX_BYTE_T completion_byte_count;
+ const ESCX_FastDispatch *fast_dispatch; ESCX_MicrostepWorkspace *workspace;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
@@ -141,6 +151,8 @@ ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_
   ESCX_ProcessStatus ESCX_StateMachineConfigureEventMatching(ESCX_StateMachine *,const ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_BYTE_T);
   ESCX_ProcessStatus ESCX_StateMachineConfigureDataBinding(ESCX_StateMachine *,ESCX_DataBinding,ESCX_BYTE_T *,ESCX_BYTE_T);
  ESCX_ProcessStatus ESCX_StateMachineConfigureCompletionStorage(ESCX_StateMachine *,ESCX_BYTE_T *,ESCX_BYTE_T);
+ ESCX_ProcessStatus ESCX_StateMachineConfigureFastDispatch(ESCX_StateMachine *,const ESCX_FastDispatch *);
+ ESCX_ProcessStatus ESCX_StateMachineConfigureWorkspace(ESCX_StateMachine *,ESCX_MicrostepWorkspace *);
   ESCX_BOOL_T ESCX_StateMachineIsDataInitialized(const ESCX_StateMachine *,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,ESCX_TimerId);
 ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine *,ESCX_StartTimerFunction,ESCX_CancelTimerFunction,void *);
@@ -219,6 +231,20 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
  static const ESCX_StateMachineDefinition n##_definition={n##_states,n##_children,n##_transitions,n##_plans,n##_plan_states,n##_selectors,n##_state_base,n##_slot_owner,n##_slot_selector,(ESCX_UINT16_T)(sizeof(n##_states)/sizeof(n##_states[0])),(ESCX_UINT16_T)(sizeof(n##_children)/sizeof(n##_children[0])),(ESCX_UINT16_T)(sizeof(n##_transitions)/sizeof(n##_transitions[0])),(ESCX_UINT16_T)(sizeof(n##_plans)/sizeof(n##_plans[0])),(ESCX_UINT16_T)(sizeof(n##_plan_states)/sizeof(n##_plan_states[0])),(ESCX_UINT16_T)(sizeof(n##_selectors)/sizeof(n##_selectors[0])),(ESCX_UINT16_T)(sizeof(n##_slot_owner)/sizeof(n##_slot_owner[0])),(ESCX_BYTE_T)(initial),(ESCX_BYTE_T)(n##_EVENT_COUNT)}
 #define ESCX_DECLARE_MACHINE(n) void n##_Init(ESCX_StateMachine *,void *,ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_HistoryStorage *,ESCX_StartTimerFunction,ESCX_CancelTimerFunction)
 #define ESCX_IMPLEMENT_MACHINE(n) void n##_Init(ESCX_StateMachine*m,void*i,ESCX_BYTE_T*b,ESCX_BYTE_T z,ESCX_HistoryStorage*h,ESCX_StartTimerFunction s,ESCX_CancelTimerFunction c){ESCX_StateMachineInit(m,&n##_definition,i,b,z,h,s,c);}
+
+#define ESCX_FAST_STATE_BASE_BEGIN(n) static const ESCX_UINT16_T n##_fast_state_base[] ESCX_ROM={
+#define ESCX_FAST_STATE_BASE_END() };
+#define ESCX_FAST_SLOT_OWNER_BEGIN(n) static const ESCX_BYTE_T n##_fast_slot_owner[] ESCX_ROM={
+#define ESCX_FAST_SLOT_OWNER_END() };
+#define ESCX_FAST_SLOT_SELECTOR_BEGIN(n) static const ESCX_UINT16_T n##_fast_slot_selector[] ESCX_ROM={
+#define ESCX_FAST_SLOT_SELECTOR_END() };
+#define ESCX_DEFINE_FAST_DISPATCH(n) static const ESCX_FastDispatch n##_fast_dispatch={n##_fast_state_base,n##_fast_slot_owner,n##_fast_slot_selector,(ESCX_UINT16_T)(sizeof(n##_fast_slot_owner)/sizeof(n##_fast_slot_owner[0]))}
+#define ESCX_DECLARE_WORKSPACE(n,exit_capacity,entry_capacity,state_count) \
+ static ESCX_BYTE_T n##_exit_states[(exit_capacity)]; \
+ static ESCX_BYTE_T n##_entry_states[(entry_capacity)]; \
+ static ESCX_BYTE_T n##_exit_seen[ESCX_ACTIVE_BYTES(state_count)]; \
+ static ESCX_BYTE_T n##_entry_seen[ESCX_ACTIVE_BYTES(state_count)]; \
+ static ESCX_MicrostepWorkspace n##_workspace={n##_exit_states,(ESCX_BYTE_T)(exit_capacity),0U,n##_entry_states,(ESCX_BYTE_T)(entry_capacity),0U,n##_exit_seen,n##_entry_seen,(ESCX_BYTE_T)ESCX_ACTIVE_BYTES(state_count)}
 #ifdef __cplusplus
 }
 #endif
