@@ -56,7 +56,7 @@ static ESCX_BYTE_T HistorySlot(const ESCX_StateMachine*m,ESCX_BYTE_T s){return S
 static ESCX_UINT16_T HistoryDefaultPlan(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU16(m,s,OFFSETOF_STATE(history_default_plan));}
 static ESCX_BYTE_T DoneEvent(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(done_event));}
 static ESCX_UINT16_T EventlessSelector(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU16(m,s,OFFSETOF_STATE(eventless_selector));}
-static ESCX_UINT16_T InitialEntryPlan(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU16(m,s,OFFSETOF_STATE(initial_entry_plan));}
+static ESCX_UINT16_T InitialEntryPlan(const ESCX_StateMachine*m,ESCX_BYTE_T s){ESCX_UINT16_T encoded;encoded=StateU16(m,s,OFFSETOF_STATE(initial_entry_plan_encoded));return(encoded==0U)?ESCX_NO_PLAN:(ESCX_UINT16_T)(encoded-1U);}
 static void SetActive(ESCX_StateMachine*m,ESCX_BYTE_T s,ESCX_BOOL_T on){ESCX_BYTE_T i,mask;i=(ESCX_BYTE_T)(s>>3);mask=(ESCX_BYTE_T)(1U<<(s&7U));if(i>=m->active_byte_count)return;if(on)m->active_bits[i]=(ESCX_BYTE_T)(m->active_bits[i]|mask);else m->active_bits[i]=(ESCX_BYTE_T)(m->active_bits[i]&((ESCX_BYTE_T)~mask));}
 static ESCX_BOOL_T IsActive(const ESCX_StateMachine*m,ESCX_BYTE_T s){ESCX_BYTE_T i,mask;i=(ESCX_BYTE_T)(s>>3);if(i>=m->active_byte_count)return ESCX_FALSE;mask=(ESCX_BYTE_T)(1U<<(s&7U));return((m->active_bits[i]&mask)!=0U)?ESCX_TRUE:ESCX_FALSE;}
 static ESCX_BOOL_T CompletionWasEmitted(const ESCX_StateMachine*m,ESCX_BYTE_T s){ESCX_BYTE_T i,mask;if(m->completion_bits==(ESCX_BYTE_T*)0)return ESCX_FALSE;i=(ESCX_BYTE_T)(s>>3);if(i>=m->completion_byte_count)return ESCX_FALSE;mask=(ESCX_BYTE_T)(1U<<(s&7U));return((m->completion_bits[i]&mask)!=0U)?ESCX_TRUE:ESCX_FALSE;}
