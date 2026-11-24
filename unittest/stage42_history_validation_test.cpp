@@ -14,9 +14,9 @@ namespace
 TEST(HistoryValidation, AcceptsOrderedDeepAndDirectShallowRanges)
 {
 	ESCX_StateMachine m = {}; ESCX_BYTE_T a[2] = {}, v[2] = {}, b[4] = {}; 
-	ESCX_HistoryStorage h = { v,b,2,2 }; const ESCX_UINT16_T f[2] = { 0,5 };
-	const ESCX_BYTE_T c[2] = { 5,2 }; const ESCX_BYTE_T st[7] = { 2,4,3,5,6,2,4 }; 
-	const ESCX_HistoryMap map = { f,c,st,7,2 }; Init(&m, &h, a); EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureHistoryMap(&m, &map));
+	ESCX_HistoryStorage h = { v,b,2,2 }; const ESCX_UINT16_T f[2] = { 0,4 };
+	const ESCX_BYTE_T c[2] = { 4,2 }; const ESCX_BYTE_T st[6] = { 2,4,3,5,2,4 }; 
+	const ESCX_HistoryMap map = { f,c,st,6,2 }; Init(&m, &h, a); EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureHistoryMap(&m, &map));
 }
 TEST(HistoryValidation, RejectsDuplicateOutsideOwnerAndHistoryPseudoState)
 {
