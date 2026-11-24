@@ -141,6 +141,10 @@ typedef struct ESCX_InvokeDescriptor {
  ESCX_InvokeFinalizeStatusFunction finalize_status; ESCX_InvokeInitializeFunction initialize; ESCX_InvokeForwardEventFunction forward_event;
 } ESCX_InvokeDescriptor;
 typedef struct ESCX_InvokeInstance { ESCX_BOOL_T active; } ESCX_InvokeInstance;
+typedef struct ESCX_InvokeMap {
+ const ESCX_UINT16_T *state_first; const ESCX_BYTE_T *state_count;
+ ESCX_UINT16_T state_count_total; ESCX_BYTE_T invoke_count_total;
+} ESCX_InvokeMap;
 typedef struct ESCX_StateMachineDefinition {
  const ESCX_StateDescriptor *states; const ESCX_BYTE_T *children;
  const ESCX_Transition *transitions; const ESCX_StatePlan *plans; const ESCX_BYTE_T *plan_states;
@@ -175,7 +179,7 @@ typedef struct ESCX_StateMachine {
    ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_ErrorEventData error_event_data; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
  ESCX_HistoryStorage *history; const ESCX_HistoryMap *history_map;
    ESCX_BYTE_T data_binding; ESCX_BYTE_T *data_initialized_bits; ESCX_BYTE_T data_initialized_byte_count;
- const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
+ const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count; const ESCX_InvokeMap *invoke_map; ESCX_BOOL_T pending_invokes[ESCX_MAX_INVOKES];
    struct ESCX_StateMachine *parent_machine; ESCX_BYTE_T parent_invoke_id;
 #if ESCX_ENABLE_DELAYED_SENDS
    ESCX_DelayedSend delayed_sends[ESCX_MAX_DELAYED_SENDS];
@@ -211,6 +215,7 @@ ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
 ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine *);
  ESCX_BOOL_T ESCX_StateMachineIsRunning(const ESCX_StateMachine *);
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine *,const ESCX_InvokeDescriptor *,ESCX_InvokeInstance *,ESCX_BYTE_T);
+  ESCX_ProcessStatus ESCX_StateMachineConfigureInvokeMap(ESCX_StateMachine *,const ESCX_InvokeMap *);
 ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine *,ESCX_BYTE_T,void *);
   ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine *,ESCX_BYTE_T,const ESCX_Event *);
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T,void *);
@@ -243,6 +248,13 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
 #define ESCX_EXECUTABLE_CANCEL_STEP(send_id_value) {ESCX_EXECUTABLE_CANCEL,(ESCX_ExecutableFunction)0,(void*)0,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,(ESCX_UINT16_T)(send_id_value),(const ESCX_TargetedSendRequest*)0},
 #define ESCX_EXECUTABLE_STEPS_END() };
 #define ESCX_DEFINE_EXECUTABLE_BLOCK(n) static const ESCX_ExecutableBlock n##_executable_block={n##_executable_steps,(ESCX_UINT16_T)(sizeof(n##_executable_steps)/sizeof(n##_executable_steps[0]))}
+#define ESCX_INVOKE_STATE_FIRST_BEGIN(n) static const ESCX_UINT16_T n##_invoke_state_first[] ESCX_ROM={
+#define ESCX_INVOKE_STATE_FIRST(v) (ESCX_UINT16_T)(v),
+#define ESCX_INVOKE_STATE_FIRST_END() };
+#define ESCX_INVOKE_STATE_COUNT_BEGIN(n) static const ESCX_BYTE_T n##_invoke_state_count[] ESCX_ROM={
+#define ESCX_INVOKE_STATE_COUNT(v) (ESCX_BYTE_T)(v),
+#define ESCX_INVOKE_STATE_COUNT_END() };
+#define ESCX_DEFINE_INVOKE_MAP(n,invoke_count) static const ESCX_InvokeMap n##_invoke_map={n##_invoke_state_first,n##_invoke_state_count,(ESCX_UINT16_T)(sizeof(n##_invoke_state_first)/sizeof(n##_invoke_state_first[0])),(ESCX_BYTE_T)(invoke_count)}
 #define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
 #define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,(ESCX_DoneDataFunction)0,(ESCX_InvokeFinalizeStatusFunction)0,(ESCX_InvokeInitializeFunction)0,(ESCX_InvokeForwardEventFunction)0},
   #define ESCX_INVOKE_DONE_DATA(owner,done_event,autoforward,storage,start,cancel,forward,finalize,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,done_data,(ESCX_InvokeFinalizeStatusFunction)0,(ESCX_InvokeInitializeFunction)0,(ESCX_InvokeForwardEventFunction)0},

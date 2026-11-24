@@ -55,3 +55,8 @@ cmake -S . -B build-vs -G "Visual Studio 18 2026" -DCMAKE_TOOLCHAIN_FILE=C:/vcpk
 ### Stage 35: generated ordered history maps
 
 Optional `ESCX_HistoryMap` tables let generated code enumerate only the states relevant to each history slot. Capture and restore avoid whole-machine state scans, and deep restoration follows generator-supplied entry order. The legacy scan path remains available when no map is configured.
+
+
+#### Stage 36: generated invoke ownership and deferred startup
+
+Optional `ESCX_InvokeMap` tables provide per-state contiguous invoke ranges. Entry schedules invokes, eventless stabilization completes, and only invokes whose owners remain active are initialized and started. Exit clears pending starts and cancels active invokes before exit content.
