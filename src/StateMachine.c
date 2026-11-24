@@ -17,6 +17,8 @@ static ESCX_ActionFunction ReadAction(const ESCX_ActionFunction*p){
  return *p;
 #endif
 }
+static void ReadExecutableStep(const ESCX_ExecutableStep*p,ESCX_ExecutableStep*out){(void)ESCX_ROM_COPY(out,p,sizeof(*out));}
+
 static ESCX_StatusActionFunction ReadStatusAction(const ESCX_StatusActionFunction*p){
 #if defined(ESCX_PLATFORM_AVR)&&(ESCX_PLATFORM_AVR!=0)
  ESCX_StatusActionFunction r;(void)ESCX_ROM_COPY(&r,p,sizeof(r));return r;
@@ -498,6 +500,21 @@ ESCX_ProcessStatus ESCX_StateMachineCancelSend(ESCX_StateMachine *m,ESCX_UINT16_
 #endif
 }
 
+ESCX_ProcessStatus ESCX_StateMachineExecuteContent(ESCX_StateMachine*m,const ESCX_ExecutableBlock*block)
+{
+ ESCX_UINT16_T i;ESCX_ExecutableStep step;ESCX_ProcessStatus result;int callback_status;
+ if((m==(ESCX_StateMachine*)0)||(block==(const ESCX_ExecutableBlock*)0))return ESCX_STATUS_INVALID_ARGUMENT;
+ if((block->step_count!=0U)&&(block->steps==(const ESCX_ExecutableStep*)0))return ESCX_STATUS_INVALID_ARGUMENT;
+ for(i=0U;i<block->step_count;++i){ReadExecutableStep(&block->steps[i],&step);result=ESCX_STATUS_PROCESSED;
+  if(step.kind==ESCX_EXECUTABLE_GENERATED){if(step.function==(ESCX_ExecutableFunction)0)return ReportErrorInternal(m,ESCX_ERROR_EXECUTION,ESCX_STATUS_INVALID_ARGUMENT);callback_status=step.function(m,step.context);if(callback_status!=(int)ESCX_STATUS_PROCESSED)result=ReportErrorInternal(m,ESCX_ERROR_EXECUTION,(ESCX_ProcessStatus)callback_status);}
+  else if(step.kind==ESCX_EXECUTABLE_RAISE){if(step.event==(const ESCX_Event*)0)return ReportErrorInternal(m,ESCX_ERROR_EXECUTION,ESCX_STATUS_INVALID_ARGUMENT);result=ESCX_StateMachineRaiseEvent(m,step.event);if(result!=ESCX_STATUS_PROCESSED)result=ReportErrorInternal(m,ESCX_ERROR_EXECUTION,result);}
+  else if(step.kind==ESCX_EXECUTABLE_SEND){if(step.send_request==(const ESCX_SendRequest*)0)return ReportErrorInternal(m,ESCX_ERROR_EXECUTION,ESCX_STATUS_INVALID_ARGUMENT);result=ESCX_StateMachineSendRequest(m,step.send_request);}
+  else if(step.kind==ESCX_EXECUTABLE_CANCEL){result=ESCX_StateMachineCancelSend(m,step.send_id);if(result!=ESCX_STATUS_PROCESSED)result=ReportErrorInternal(m,ESCX_ERROR_EXECUTION,result);}
+  else return ReportErrorInternal(m,ESCX_ERROR_EXECUTION,ESCX_STATUS_INVALID_ARGUMENT);
+  if(result!=ESCX_STATUS_PROCESSED)return result;
+ }
+ return ESCX_STATUS_PROCESSED;
+}
 static ESCX_ProcessStatus ReportErrorInternal(ESCX_StateMachine *m,ESCX_ErrorCode code,ESCX_ProcessStatus cause)
 {
 #if ESCX_ENABLE_ERROR_EVENTS

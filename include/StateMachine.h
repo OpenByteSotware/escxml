@@ -86,6 +86,18 @@ typedef enum ESCX_ErrorCode {
    ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
    ESCX_UINT16_T send_id; unsigned long delay_ticks; void *event_data;
   } ESCX_SendRequest;
+  typedef enum ESCX_ExecutableKind {
+   ESCX_EXECUTABLE_GENERATED=0, ESCX_EXECUTABLE_RAISE=1,
+   ESCX_EXECUTABLE_SEND=2, ESCX_EXECUTABLE_CANCEL=3
+  } ESCX_ExecutableKind;
+  typedef int (*ESCX_ExecutableFunction)(struct ESCX_StateMachine *, void *);
+  typedef struct ESCX_ExecutableStep {
+   ESCX_BYTE_T kind; ESCX_ExecutableFunction function; void *context;
+   const ESCX_Event *event; const ESCX_SendRequest *send_request; ESCX_UINT16_T send_id;
+  } ESCX_ExecutableStep;
+  typedef struct ESCX_ExecutableBlock {
+   const ESCX_ExecutableStep *steps; ESCX_UINT16_T step_count;
+  } ESCX_ExecutableBlock;
   typedef struct ESCX_DelayedSend {
    ESCX_BOOL_T active; ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
    ESCX_UINT16_T send_id; ESCX_TimerId timer_id; ESCX_BYTE_T event_type; ESCX_BYTE_T origin_type; ESCX_BYTE_T invoke_id; void *event_data;
@@ -176,12 +188,20 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
   ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine *,ESCX_StateMachine *,ESCX_BYTE_T);
   ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine *,const ESCX_SendRequest *);
   ESCX_ProcessStatus ESCX_StateMachineCancelSend(ESCX_StateMachine *,ESCX_UINT16_T);
+  ESCX_ProcessStatus ESCX_StateMachineExecuteContent(ESCX_StateMachine *,const ESCX_ExecutableBlock *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureErrorEvents(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T);
   ESCX_BYTE_T ESCX_StateMachineGetLastError(const ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineGetLastErrorStatus(const ESCX_StateMachine *);
   void ESCX_StateMachineClearError(ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineReportError(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
 
+#define ESCX_EXECUTABLE_STEPS_BEGIN(n) static const ESCX_ExecutableStep n##_executable_steps[] ESCX_ROM={
+#define ESCX_EXECUTABLE_GENERATED_STEP(function,context) {ESCX_EXECUTABLE_GENERATED,function,context,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID},
+#define ESCX_EXECUTABLE_RAISE_STEP(event_ptr) {ESCX_EXECUTABLE_RAISE,(ESCX_ExecutableFunction)0,(void*)0,event_ptr,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID},
+#define ESCX_EXECUTABLE_SEND_STEP(request_ptr) {ESCX_EXECUTABLE_SEND,(ESCX_ExecutableFunction)0,(void*)0,(const ESCX_Event*)0,request_ptr,ESCX_NO_SEND_ID},
+#define ESCX_EXECUTABLE_CANCEL_STEP(send_id_value) {ESCX_EXECUTABLE_CANCEL,(ESCX_ExecutableFunction)0,(void*)0,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,(ESCX_UINT16_T)(send_id_value)},
+#define ESCX_EXECUTABLE_STEPS_END() };
+#define ESCX_DEFINE_EXECUTABLE_BLOCK(n) static const ESCX_ExecutableBlock n##_executable_block={n##_executable_steps,(ESCX_UINT16_T)(sizeof(n##_executable_steps)/sizeof(n##_executable_steps[0]))}
 #define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
 #define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,(ESCX_DoneDataFunction)0,(ESCX_InvokeFinalizeStatusFunction)0,(ESCX_InvokeInitializeFunction)0},
   #define ESCX_INVOKE_DONE_DATA(owner,done_event,autoforward,storage,start,cancel,forward,finalize,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,done_data,(ESCX_InvokeFinalizeStatusFunction)0,(ESCX_InvokeInitializeFunction)0},
