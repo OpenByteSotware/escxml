@@ -133,6 +133,7 @@ typedef enum ESCX_ErrorCode {
  ESCX_STATUS_TIMER_START_FAILED=13, ESCX_STATUS_TIMER_CANCEL_FAILED=14,
    ESCX_STATUS_CALLBACK_FAILED=15
 } ESCX_ProcessStatus;
+typedef struct ESCX_MacrostepResult { ESCX_BOOL_T event_accepted; ESCX_BOOL_T transition_taken; ESCX_UINT16_T microstep_count; } ESCX_MacrostepResult;
 typedef struct ESCX_ErrorEventData { ESCX_BYTE_T code; ESCX_ProcessStatus cause; ESCX_Event triggering_event; } ESCX_ErrorEventData;
 typedef struct ESCX_InvokeDescriptor {
  ESCX_BYTE_T owner_state; ESCX_BYTE_T done_event; ESCX_BOOL_T autoforward;
@@ -179,7 +180,7 @@ typedef struct ESCX_StateMachine {
  ESCX_SystemContext system_context;
  ESCX_IOProcessorSendFunction io_processor_send; void *io_processor_context;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
-   ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_ErrorEventData error_event_data; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
+   ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_MacrostepResult last_macrostep_result; ESCX_ErrorEventData error_event_data; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
  ESCX_HistoryStorage *history; const ESCX_HistoryMap *history_map;
    ESCX_BYTE_T data_binding; ESCX_BYTE_T *data_initialized_bits; ESCX_BYTE_T data_initialized_byte_count;
  const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count; const ESCX_InvokeMap *invoke_map; const ESCX_ExitOrder *exit_order; ESCX_BOOL_T pending_invokes[ESCX_MAX_INVOKES];
@@ -199,6 +200,7 @@ ESCX_ProcessStatus ESCX_StateMachineStart(ESCX_StateMachine *);
 void ESCX_StateMachineStop(ESCX_StateMachine *);
 ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine *,ESCX_BYTE_T,void *);
   ESCX_ProcessStatus ESCX_StateMachineSendEvent(ESCX_StateMachine *,const ESCX_Event *);
+  const ESCX_MacrostepResult *ESCX_StateMachineGetLastMacrostepResult(const ESCX_StateMachine *);
 ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_T,void *);
   ESCX_ProcessStatus ESCX_StateMachineRaiseEvent(ESCX_StateMachine *,const ESCX_Event *);
   const ESCX_Event *ESCX_StateMachineGetCurrentEvent(const ESCX_StateMachine *);

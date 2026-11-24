@@ -41,7 +41,7 @@ static int TestNoGuardMatch(void)
     data.mode = 99;
     SimpleMachine_Init(&machine, &data, (ESCX_StartTimerFunction)0, (ESCX_CancelTimerFunction)0);
     if (ESCX_StateMachineStart(&machine) != ESCX_STATUS_PROCESSED) return 20;
-    if (ESCX_StateMachineSend(&machine, SimpleMachine_StartEvent, (void *)0) != ESCX_STATUS_IGNORED) return 21;
+    if (ESCX_StateMachineSend(&machine, SimpleMachine_StartEvent, (void *)0) != ESCX_STATUS_PROCESSED) return 21;
     if (ESCX_StateMachineIsInState(&machine, SimpleMachine_Idle) == ESCX_FALSE) return 22;
     return 0;
 }

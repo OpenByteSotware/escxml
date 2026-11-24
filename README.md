@@ -70,3 +70,8 @@ Eventless selection and executable content now observe a neutral `_event`. The e
 ####### Stage 38: generated complete-configuration exit order
 
 An optional `ESCX_ExitOrder` gives termination and explicit stop a generated deepest-first, reverse-document-order state sequence. The stop path performs one bounded pass over this ROM table, exits only active states, and avoids repeated whole-definition scans. The legacy scan remains available when no exit order is configured.
+
+
+### Stage 39: event acceptance semantics
+
+A valid event whose macrostep completes returns `ESCX_STATUS_PROCESSED`, whether or not a transition was enabled. `ESCX_StateMachineGetLastMacrostepResult()` separately reports event acceptance, whether any transition was taken, and the number of transition microsteps executed.
