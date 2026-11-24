@@ -75,3 +75,8 @@ An optional `ESCX_ExitOrder` gives termination and explicit stop a generated dee
 ### Stage 39: event acceptance semantics
 
 A valid event whose macrostep completes returns `ESCX_STATUS_PROCESSED`, whether or not a transition was enabled. `ESCX_StateMachineGetLastMacrostepResult()` separately reports event acceptance, whether any transition was taken, and the number of transition microsteps executed.
+
+
+### Stage 40: error-event hardening
+
+A queued platform error owns a stable structured payload and keeps the recursion latch set until that exact event has been consumed. Additional failures while an error is pending update diagnostics without overwriting or recursively enqueueing the pending platform event. Queue-full delivery leaves the latch clear so a later report can retry.
