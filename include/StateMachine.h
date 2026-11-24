@@ -111,6 +111,7 @@ typedef struct ESCX_StateMachineDefinition {
 typedef struct ESCX_StateMachine {
  const ESCX_StateMachineDefinition *definition; void *instance;
  ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
+ ESCX_BYTE_T *completion_bits; ESCX_BYTE_T completion_byte_count;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
@@ -139,6 +140,7 @@ ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_
   const ESCX_Event *ESCX_StateMachineGetCurrentEvent(const ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureEventMatching(ESCX_StateMachine *,const ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_BYTE_T);
   ESCX_ProcessStatus ESCX_StateMachineConfigureDataBinding(ESCX_StateMachine *,ESCX_DataBinding,ESCX_BYTE_T *,ESCX_BYTE_T);
+ ESCX_ProcessStatus ESCX_StateMachineConfigureCompletionStorage(ESCX_StateMachine *,ESCX_BYTE_T *,ESCX_BYTE_T);
   ESCX_BOOL_T ESCX_StateMachineIsDataInitialized(const ESCX_StateMachine *,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,ESCX_TimerId);
 ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine *,ESCX_StartTimerFunction,ESCX_CancelTimerFunction,void *);
