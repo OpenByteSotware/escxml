@@ -129,6 +129,7 @@ typedef enum ESCX_ErrorCode {
  ESCX_STATUS_TIMER_START_FAILED=13, ESCX_STATUS_TIMER_CANCEL_FAILED=14,
    ESCX_STATUS_CALLBACK_FAILED=15
 } ESCX_ProcessStatus;
+typedef struct ESCX_ErrorEventData { ESCX_BYTE_T code; ESCX_ProcessStatus cause; ESCX_Event triggering_event; } ESCX_ErrorEventData;
 typedef struct ESCX_InvokeDescriptor {
  ESCX_BYTE_T owner_state; ESCX_BYTE_T done_event; ESCX_BOOL_T autoforward;
  void *child_storage; ESCX_InvokeStartFunction start; ESCX_InvokeCancelFunction cancel;
@@ -167,7 +168,7 @@ typedef struct ESCX_StateMachine {
  ESCX_SystemContext system_context;
  ESCX_IOProcessorSendFunction io_processor_send; void *io_processor_context;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
-   ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
+   ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_ErrorEventData error_event_data; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
  ESCX_HistoryStorage *history;
    ESCX_BYTE_T data_binding; ESCX_BYTE_T *data_initialized_bits; ESCX_BYTE_T data_initialized_byte_count;
  const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
@@ -219,6 +220,7 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
   ESCX_ProcessStatus ESCX_StateMachineConfigureErrorEvents(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T);
   ESCX_BYTE_T ESCX_StateMachineGetLastError(const ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineGetLastErrorStatus(const ESCX_StateMachine *);
+  const ESCX_ErrorEventData *ESCX_StateMachineGetLastErrorData(const ESCX_StateMachine *);
   void ESCX_StateMachineClearError(ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineReportError(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
 

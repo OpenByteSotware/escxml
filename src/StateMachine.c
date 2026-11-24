@@ -116,7 +116,7 @@ void ESCX_StateMachineInit(ESCX_StateMachine*m,const ESCX_StateMachineDefinition
 #if ESCX_ENABLE_DELAYED_SENDS
 {ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;m->delayed_sends[di].uses_target_descriptor=ESCX_FALSE;}}
 #endif
-m->active_bits=b;m->active_byte_count=z;m->fast_dispatch=(const ESCX_FastDispatch*)0;m->conflict_map=(const ESCX_ConflictMap*)0;m->workspace=(ESCX_MicrostepWorkspace*)0;m->completion_bits=(ESCX_BYTE_T*)0;m->completion_byte_count=0U;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->system_context.session_id=0U;m->system_context.machine_name_id=0U;m->system_context.io_processors=(const void*)0;m->system_context.platform_data=(void*)0;m->io_processor_send=(ESCX_IOProcessorSendFunction)0;m->io_processor_context=(void*)0;m->event_parent=(const ESCX_BYTE_T*)0;m->event_parent_count=0U;m->wildcard_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->reporting_error=ESCX_FALSE;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;m->finish_pending=ESCX_FALSE;
+m->active_bits=b;m->active_byte_count=z;m->fast_dispatch=(const ESCX_FastDispatch*)0;m->conflict_map=(const ESCX_ConflictMap*)0;m->workspace=(ESCX_MicrostepWorkspace*)0;m->completion_bits=(ESCX_BYTE_T*)0;m->completion_byte_count=0U;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->system_context.session_id=0U;m->system_context.machine_name_id=0U;m->system_context.io_processors=(const void*)0;m->system_context.platform_data=(void*)0;m->io_processor_send=(ESCX_IOProcessorSendFunction)0;m->io_processor_context=(void*)0;m->event_parent=(const ESCX_BYTE_T*)0;m->event_parent_count=0U;m->wildcard_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->error_event_data.code=ESCX_ERROR_NONE;m->error_event_data.cause=ESCX_STATUS_PROCESSED;m->error_event_data.triggering_event=m->current_event_descriptor;m->reporting_error=ESCX_FALSE;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;m->finish_pending=ESCX_FALSE;
 #if ESCX_ENABLE_TIMERS
 m->start_timer=st;m->cancel_timer=ct;m->timer_context=(void*)0;
 #else
@@ -576,12 +576,15 @@ static ESCX_ProcessStatus ReportErrorInternal(ESCX_StateMachine *m,ESCX_ErrorCod
     if(m==(ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT;
     m->last_error=(ESCX_BYTE_T)code;
     m->last_error_status=cause;
+    m->error_event_data.code=(ESCX_BYTE_T)code;
+    m->error_event_data.cause=cause;
+    m->error_event_data.triggering_event=m->current_event_descriptor;
     if(m->reporting_error!=ESCX_FALSE)return cause;
     if(code==ESCX_ERROR_COMMUNICATION)event_id=m->error_communication_event;
     else event_id=m->error_execution_event;
     if((event_id==ESCX_NO_EVENT)||(m->running==ESCX_FALSE))return cause;
     m->reporting_error=ESCX_TRUE;
-    if(ESCX_EventQueuePush(&m->internal_queue,event_id,(void*)0)==ESCX_FALSE){
+    if(ESCX_EventQueuePushEx(&m->internal_queue,event_id,ESCX_EVENT_TYPE_PLATFORM,ESCX_EVENT_ORIGIN_PLATFORM,ESCX_NO_INVOKE,ESCX_NO_SEND_ID,&m->error_event_data)==ESCX_FALSE){
         m->reporting_error=ESCX_FALSE;
         return cause;
     }
@@ -620,8 +623,12 @@ ESCX_ProcessStatus ESCX_StateMachineGetLastErrorStatus(const ESCX_StateMachine *
 {
     return (m==(const ESCX_StateMachine*)0)?ESCX_STATUS_INVALID_ARGUMENT:m->last_error_status;
 }
+const ESCX_ErrorEventData *ESCX_StateMachineGetLastErrorData(const ESCX_StateMachine *m)
+{
+ return (m==(const ESCX_StateMachine*)0)?(const ESCX_ErrorEventData*)0:&m->error_event_data;
+}
 
 void ESCX_StateMachineClearError(ESCX_StateMachine *m)
 {
-    if(m!=(ESCX_StateMachine*)0){m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->reporting_error=ESCX_FALSE;}
+    if(m!=(ESCX_StateMachine*)0){m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->error_event_data.code=ESCX_ERROR_NONE;m->error_event_data.cause=ESCX_STATUS_PROCESSED;m->error_event_data.triggering_event.name_id=ESCX_NO_EVENT;m->error_event_data.triggering_event.type=ESCX_EVENT_TYPE_INTERNAL;m->error_event_data.triggering_event.origin_type=ESCX_EVENT_ORIGIN_NONE;m->error_event_data.triggering_event.invoke_id=ESCX_NO_INVOKE;m->error_event_data.triggering_event.send_id=ESCX_NO_SEND_ID;m->error_event_data.triggering_event.data=(void*)0;m->reporting_error=ESCX_FALSE;}
 }
