@@ -320,7 +320,6 @@ static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine*m)
 {
  ESCX_UINT16_T selected[ESCX_MAX_ENABLED_TRANSITIONS];ESCX_BYTE_T selected_count,i,leaf;ESCX_UINT16_T selector_id,transition_id;ESCX_SelectorFunction selector;ESCX_ProcessStatus status;
  selected_count=0U;
- m->current_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;
  for(i=0U;i<m->active_atomic_count;++i){
   leaf=m->active_atomic_states[i];selector_id=FindEffectiveEventlessSelector(m,leaf);
   if(selector_id==ESCX_NO_SELECTOR)continue;
