@@ -1,0 +1,51 @@
+#ifndef ESCX_UNITTEST_ESCX_MACHINE_TEST_H
+#define ESCX_UNITTEST_ESCX_MACHINE_TEST_H
+
+#include <gtest/gtest.h>
+
+extern "C" {
+#include "StateMachine.h"
+}
+
+#include <cstring>
+
+namespace escx {
+namespace unittest {
+
+static const ESCX_StateDescriptor kStates[2] = {
+    { 0,0,0,0,0,0,0,0,0,0,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN },
+    { 0,0,0,ESCX_NO_STATE,0,0,ESCX_NO_STATE,0,0,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN }
+};
+static const ESCX_BYTE_T kChildren[1] = { 0 };
+static const ESCX_Transition kTransitions[1] = {
+    { ESCX_NO_PLAN,ESCX_NO_PLAN,0,ESCX_TRANSITION_TARGETLESS,0,0,0 }
+};
+static const ESCX_StatePlan kPlans[1] = { { 0,0 } };
+static const ESCX_BYTE_T kPlanStates[1] = { 0 };
+static const ESCX_SelectorFunction kSelectors[1] = { 0 };
+static const ESCX_UINT16_T kBases[2] = { 0,0 };
+static const ESCX_BYTE_T kOwners[1] = { 0 };
+static const ESCX_UINT16_T kSlots[1] = { ESCX_NO_SELECTOR };
+static const ESCX_StateMachineDefinition kDefinition = {
+    kStates,kChildren,kTransitions,kPlans,kPlanStates,kSelectors,
+    kBases,kOwners,kSlots,2,1,1,1,1,1,1,1,4
+};
+
+class ESCXMachineTest : public ::testing::Test
+{
+protected:
+    ESCX_StateMachine machine;
+    ESCX_BYTE_T bits[1];
+
+    void SetUp() override
+    {
+        std::memset(&machine, 0, sizeof(machine));
+        ESCX_StateMachineInit(&machine, &kDefinition, 0, bits, 1, 0, 0, 0);
+        ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&machine));
+    }
+};
+
+} // namespace unittest
+} // namespace escx
+
+#endif
