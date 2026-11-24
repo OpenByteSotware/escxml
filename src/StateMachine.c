@@ -45,6 +45,13 @@ static ESCX_InvokeFinalizeStatusFunction ReadInvokeFinalizeStatus(const ESCX_Inv
  return *p;
 #endif
 }
+static ESCX_InvokeInitializeFunction ReadInvokeInitialize(const ESCX_InvokeInitializeFunction*p){
+#if defined(ESCX_PLATFORM_AVR)&&(ESCX_PLATFORM_AVR!=0)
+ ESCX_InvokeInitializeFunction r;(void)ESCX_ROM_COPY(&r,p,sizeof(r));return r;
+#else
+ return *p;
+#endif
+}
 static ESCX_SelectorFunction ReadSelector(const ESCX_SelectorFunction*p){
 #if defined(ESCX_PLATFORM_AVR)&&(ESCX_PLATFORM_AVR!=0)
  ESCX_SelectorFunction r;(void)ESCX_ROM_COPY(&r,p,sizeof(r));return r;
@@ -79,7 +86,7 @@ ESCX_BOOL_T ESCX_StateMachineIsRunning(const ESCX_StateMachine*m){return((m!=(co
 static ESCX_ProcessStatus ReportErrorInternal(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
 static void SetCurrentEvent(ESCX_StateMachine *,const ESCX_Event *);
 static void ReadInvokeDescriptor(const ESCX_StateMachine*m,ESCX_BYTE_T index,ESCX_InvokeDescriptor*out){(void)ESCX_ROM_COPY(out,&m->invokes[index],sizeof(*out));}
-static ESCX_ProcessStatus StartInvokesForState(ESCX_StateMachine*m,ESCX_BYTE_T state){ESCX_BYTE_T i;ESCX_InvokeDescriptor d;int status;if((m->invokes==(const ESCX_InvokeDescriptor*)0)||(m->invoke_instances==(ESCX_InvokeInstance*)0))return ESCX_STATUS_PROCESSED;for(i=0U;i<m->invoke_count;++i){ReadInvokeDescriptor(m,i,&d);if((d.owner_state==state)&&(m->invoke_instances[i].active==ESCX_FALSE)){if(d.start==(ESCX_InvokeStartFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;status=d.start(m,d.child_storage);if(status!=(int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status;m->invoke_instances[i].active=ESCX_TRUE;}}return ESCX_STATUS_PROCESSED;}
+static ESCX_ProcessStatus StartInvokesForState(ESCX_StateMachine*m,ESCX_BYTE_T state){ESCX_BYTE_T i;ESCX_InvokeDescriptor d;ESCX_InvokeInitializeFunction initialize;int status;if((m->invokes==(const ESCX_InvokeDescriptor*)0)||(m->invoke_instances==(ESCX_InvokeInstance*)0))return ESCX_STATUS_PROCESSED;for(i=0U;i<m->invoke_count;++i){ReadInvokeDescriptor(m,i,&d);if((d.owner_state==state)&&(m->invoke_instances[i].active==ESCX_FALSE)){initialize=ReadInvokeInitialize(&d.initialize);if(initialize!=(ESCX_InvokeInitializeFunction)0){status=initialize(m,d.child_storage,i);if(status!=(int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status;}if(d.start==(ESCX_InvokeStartFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;status=d.start(m,d.child_storage);if(status!=(int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status;m->invoke_instances[i].active=ESCX_TRUE;}}return ESCX_STATUS_PROCESSED;}
 static void CancelInvokesForState(ESCX_StateMachine*m,ESCX_BYTE_T state){ESCX_BYTE_T i;ESCX_InvokeDescriptor d;if((m->invokes==(const ESCX_InvokeDescriptor*)0)||(m->invoke_instances==(ESCX_InvokeInstance*)0))return;for(i=0U;i<m->invoke_count;++i){ReadInvokeDescriptor(m,i,&d);if((d.owner_state==state)&&(m->invoke_instances[i].active!=ESCX_FALSE)){if(d.cancel!=(ESCX_InvokeCancelFunction)0)d.cancel(m,d.child_storage);m->invoke_instances[i].active=ESCX_FALSE;}}}
 static ESCX_ProcessStatus CallState(ESCX_StateMachine*m,ESCX_BYTE_T s,void*d,int which)
 {
