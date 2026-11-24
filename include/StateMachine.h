@@ -48,7 +48,11 @@ typedef struct ESCX_Transition {
  ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action;
  ESCX_BYTE_T type; ESCX_BYTE_T source_state; ESCX_BYTE_T source_depth; ESCX_BYTE_T document_order;
 } ESCX_Transition;
-typedef enum ESCX_SendTarget {
+typedef enum ESCX_ErrorCode {
+   ESCX_ERROR_NONE=0, ESCX_ERROR_EXECUTION=1, ESCX_ERROR_COMMUNICATION=2,
+   ESCX_ERROR_PLATFORM=3
+  } ESCX_ErrorCode;
+  typedef enum ESCX_SendTarget {
    ESCX_SEND_TARGET_SELF=0, ESCX_SEND_TARGET_INTERNAL=1,
    ESCX_SEND_TARGET_PARENT=2, ESCX_SEND_TARGET_INVOKE=3
   } ESCX_SendTarget;
@@ -64,7 +68,8 @@ typedef enum ESCX_SendTarget {
  ESCX_STATUS_IGNORED=0, ESCX_STATUS_PROCESSED=1, ESCX_STATUS_INVALID_EVENT=2,
  ESCX_STATUS_NOT_RUNNING=3, ESCX_STATUS_QUEUE_FULL=4, ESCX_STATUS_INVALID_ARGUMENT=5,
  ESCX_STATUS_HIERARCHY_LIMIT=6, ESCX_STATUS_MICROSTEP_LIMIT=7,
-   ESCX_STATUS_NO_PARENT=8, ESCX_STATUS_INVALID_TARGET=9, ESCX_STATUS_SEND_NOT_FOUND=10
+   ESCX_STATUS_NO_PARENT=8, ESCX_STATUS_INVALID_TARGET=9, ESCX_STATUS_SEND_NOT_FOUND=10,
+   ESCX_STATUS_EXECUTION_ERROR=11, ESCX_STATUS_COMMUNICATION_ERROR=12
 } ESCX_ProcessStatus;
 typedef struct ESCX_InvokeDescriptor {
  ESCX_BYTE_T owner_state; ESCX_BYTE_T done_event; ESCX_BOOL_T autoforward;
@@ -84,7 +89,8 @@ typedef struct ESCX_StateMachine {
  const ESCX_StateMachineDefinition *definition; void *instance;
  ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
- ESCX_BYTE_T current_event; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
+ ESCX_BYTE_T current_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
+   ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
  ESCX_HistoryStorage *history;
  const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
    struct ESCX_StateMachine *parent_machine; ESCX_BYTE_T parent_invoke_id;
@@ -113,6 +119,10 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
   ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine *,const ESCX_SendRequest *);
   ESCX_ProcessStatus ESCX_StateMachineCancelSend(ESCX_StateMachine *,ESCX_UINT16_T);
   ESCX_ProcessStatus ESCX_StateMachineAdvanceTime(ESCX_StateMachine *,unsigned long);
+  ESCX_ProcessStatus ESCX_StateMachineConfigureErrorEvents(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T);
+  ESCX_BYTE_T ESCX_StateMachineGetLastError(const ESCX_StateMachine *);
+  ESCX_ProcessStatus ESCX_StateMachineGetLastErrorStatus(const ESCX_StateMachine *);
+  void ESCX_StateMachineClearError(ESCX_StateMachine *);
 
 #define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
 #define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize},

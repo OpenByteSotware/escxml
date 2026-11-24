@@ -45,3 +45,9 @@ Normal ARM, x86, Windows, Linux and Green Hills builds use ordinary const reads.
       tests/test_state_machine.c -o escxml_test
 
 The package tests switch-selected transitions, an unconditional selector, and the no-match path.
+
+
+## builds
+cmake -S . -B build-vs -G "Visual Studio 18 2026"
+
+cmake -S . -B build-vs -G "Visual Studio 18 2026" -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DESCX_BUILD_TESTS=ON

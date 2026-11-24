@@ -106,6 +106,14 @@
 #error ESCX_MAX_DELAYED_SENDS must be between 1 and 254
 #endif
 
+
+#ifndef ESCX_ENABLE_ERROR_EVENTS
+#define ESCX_ENABLE_ERROR_EVENTS 1
+#endif
+#if (ESCX_ENABLE_ERROR_EVENTS != 0) && (ESCX_ENABLE_ERROR_EVENTS != 1)
+#error ESCX_ENABLE_ERROR_EVENTS must be 0 or 1
+#endif
+
 #define ESCX_JOIN_INNER(a, b) a##b
 #define ESCX_JOIN(a, b) ESCX_JOIN_INNER(a, b)
 #define ESCX_COMPILE_ASSERT_N(expression, suffix) \

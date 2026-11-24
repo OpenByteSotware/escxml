@@ -54,7 +54,7 @@ void ESCX_StateMachineInit(ESCX_StateMachine*m,const ESCX_StateMachineDefinition
 #if ESCX_ENABLE_DELAYED_SENDS
 {ESCX_BYTE_T di;m->current_tick=0UL;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di)m->delayed_sends[di].active=ESCX_FALSE;}
 #endif
-m->active_bits=b;m->active_byte_count=z;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;
+m->active_bits=b;m->active_byte_count=z;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;
 #if ESCX_ENABLE_TIMERS
 m->timer_id=ESCX_INVALID_TIMER_ID;m->start_timer=st;m->cancel_timer=ct;
 #else
@@ -198,4 +198,28 @@ ESCX_ProcessStatus ESCX_StateMachineAdvanceTime(ESCX_StateMachine *m,unsigned lo
 #else
     (void)m;(void)now_tick;return ESCX_STATUS_PROCESSED;
 #endif
+}
+
+
+ESCX_ProcessStatus ESCX_StateMachineConfigureErrorEvents(ESCX_StateMachine *m,ESCX_BYTE_T execution_event,ESCX_BYTE_T communication_event)
+{
+    if((m==(ESCX_StateMachine*)0)||(m->definition==(const ESCX_StateMachineDefinition*)0))return ESCX_STATUS_INVALID_ARGUMENT;
+    if((execution_event!=ESCX_NO_EVENT)&&(execution_event>=m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
+    if((communication_event!=ESCX_NO_EVENT)&&(communication_event>=m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
+    m->error_execution_event=execution_event;m->error_communication_event=communication_event;return ESCX_STATUS_PROCESSED;
+}
+
+ESCX_BYTE_T ESCX_StateMachineGetLastError(const ESCX_StateMachine *m)
+{
+    return (m==(const ESCX_StateMachine*)0)?(ESCX_BYTE_T)ESCX_ERROR_PLATFORM:m->last_error;
+}
+
+ESCX_ProcessStatus ESCX_StateMachineGetLastErrorStatus(const ESCX_StateMachine *m)
+{
+    return (m==(const ESCX_StateMachine*)0)?ESCX_STATUS_INVALID_ARGUMENT:m->last_error_status;
+}
+
+void ESCX_StateMachineClearError(ESCX_StateMachine *m)
+{
+    if(m!=(ESCX_StateMachine*)0){m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;}
 }
