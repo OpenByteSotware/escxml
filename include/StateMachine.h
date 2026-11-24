@@ -117,11 +117,14 @@ typedef struct ESCX_FastDispatch {
  const ESCX_UINT16_T *state_base; const ESCX_BYTE_T *slot_owner;
  const ESCX_UINT16_T *slot_selector; ESCX_UINT16_T slot_count;
 } ESCX_FastDispatch;
+typedef struct ESCX_ConflictMap {
+ const ESCX_BYTE_T *bits; ESCX_UINT16_T transition_count; ESCX_UINT16_T bytes_per_row;
+} ESCX_ConflictMap;
 typedef struct ESCX_StateMachine {
  const ESCX_StateMachineDefinition *definition; void *instance;
  ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
  ESCX_BYTE_T *completion_bits; ESCX_BYTE_T completion_byte_count;
- const ESCX_FastDispatch *fast_dispatch; ESCX_MicrostepWorkspace *workspace;
+ const ESCX_FastDispatch *fast_dispatch; const ESCX_ConflictMap *conflict_map; ESCX_MicrostepWorkspace *workspace;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
@@ -152,6 +155,7 @@ ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_
   ESCX_ProcessStatus ESCX_StateMachineConfigureDataBinding(ESCX_StateMachine *,ESCX_DataBinding,ESCX_BYTE_T *,ESCX_BYTE_T);
  ESCX_ProcessStatus ESCX_StateMachineConfigureCompletionStorage(ESCX_StateMachine *,ESCX_BYTE_T *,ESCX_BYTE_T);
  ESCX_ProcessStatus ESCX_StateMachineConfigureFastDispatch(ESCX_StateMachine *,const ESCX_FastDispatch *);
+ ESCX_ProcessStatus ESCX_StateMachineConfigureConflictMap(ESCX_StateMachine *,const ESCX_ConflictMap *);
  ESCX_ProcessStatus ESCX_StateMachineConfigureWorkspace(ESCX_StateMachine *,ESCX_MicrostepWorkspace *);
   ESCX_BOOL_T ESCX_StateMachineIsDataInitialized(const ESCX_StateMachine *,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,ESCX_TimerId);
@@ -245,6 +249,12 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
  static ESCX_BYTE_T n##_exit_seen[ESCX_ACTIVE_BYTES(state_count)]; \
  static ESCX_BYTE_T n##_entry_seen[ESCX_ACTIVE_BYTES(state_count)]; \
  static ESCX_MicrostepWorkspace n##_workspace={n##_exit_states,(ESCX_BYTE_T)(exit_capacity),0U,n##_entry_states,(ESCX_BYTE_T)(entry_capacity),0U,n##_exit_seen,n##_entry_seen,(ESCX_BYTE_T)ESCX_ACTIVE_BYTES(state_count)}
+
+#define ESCX_CONFLICT_BYTES(count) (((count)+7U)/8U)
+#define ESCX_CONFLICT_BITS_BEGIN(n) static const ESCX_BYTE_T n##_conflict_bits[] ESCX_ROM={
+#define ESCX_CONFLICT_BYTE(v) (ESCX_BYTE_T)(v),
+#define ESCX_CONFLICT_BITS_END() };
+#define ESCX_DEFINE_CONFLICT_MAP(n,transition_count) static const ESCX_ConflictMap n##_conflict_map={n##_conflict_bits,(ESCX_UINT16_T)(transition_count),(ESCX_UINT16_T)ESCX_CONFLICT_BYTES(transition_count)}
 #ifdef __cplusplus
 }
 #endif
