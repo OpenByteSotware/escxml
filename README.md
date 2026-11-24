@@ -85,3 +85,8 @@ A queued platform error owns a stable structured payload and keeps the recursion
 ### Stage 41: startup rollback and failure cleanup
 
 Startup is now transactional from the runtime's perspective. Failures during early data initialization, initial entry, eventless stabilization, queued internal-event processing, or deferred invoke startup exit every state that was successfully entered, cancel active invokes and delayed sends, clear queues and pending invoke work, and return the machine to a stopped, restartable state. Parallel child-entry failures preserve their original status instead of being collapsed to `ESCX_STATUS_INVALID_ARGUMENT`.
+
+
+### Stage 42: generated history validation and deep-history conformance
+
+Generated history maps are now validated against their actual history pseudo-state and owner. Every slot must have exactly one history state, mapped states must be unique descendants of that owner, shallow history may contain only direct children, and deep-history entries must be in ancestor-before-descendant and document order. History pseudo-states cannot be recorded as configuration states. These guarantees make generated deep-history restoration deterministic for nested compound and parallel configurations.

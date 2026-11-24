@@ -86,6 +86,7 @@ ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine*m,ESCX_BYTE_T s){
 ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine*m){return((m!=(const ESCX_StateMachine*)0)&&(m->finished!=ESCX_FALSE))?ESCX_TRUE:ESCX_FALSE;}
 ESCX_BOOL_T ESCX_StateMachineIsRunning(const ESCX_StateMachine*m){return((m!=(const ESCX_StateMachine*)0)&&(m->running!=ESCX_FALSE))?ESCX_TRUE:ESCX_FALSE;}
 static ESCX_ProcessStatus ReportErrorInternal(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
+static ESCX_BOOL_T IsDescendantOf(const ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T);
 static void SetCurrentEvent(ESCX_StateMachine *,const ESCX_Event *);
 static void SetNeutralCurrentEvent(ESCX_StateMachine *);
 static void SetTriggeringEvent(ESCX_StateMachine *,const ESCX_Event *);
@@ -141,10 +142,20 @@ static void ExitCompleteConfiguration(ESCX_StateMachine*m,void*d);
 static void FinishInterpreter(ESCX_StateMachine*m);
 ESCX_ProcessStatus ESCX_StateMachineConfigureHistoryMap(ESCX_StateMachine*m,const ESCX_HistoryMap*map)
 {
- ESCX_BYTE_T slot,count,state;ESCX_UINT16_T first,i;
+ ESCX_BYTE_T slot,count,state,history_state,owner,type,previous,seen[ESCX_ACTIVE_BYTES(ESCX_MAX_STATES)];ESCX_UINT16_T first,i,j;ESCX_BOOL_T found;
  if((m==(ESCX_StateMachine*)0)||(map==(const ESCX_HistoryMap*)0)||(map->slot_first==(const ESCX_UINT16_T*)0)||(map->slot_count==(const ESCX_BYTE_T*)0)||(map->states==(const ESCX_BYTE_T*)0))return ESCX_STATUS_INVALID_ARGUMENT;
- if((m->history==(ESCX_HistoryStorage*)0)||(map->slot_count_total<m->history->slot_count)||(m->running!=ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT;
- for(slot=0U;slot<m->history->slot_count;++slot){first=ESCX_ROM_READ_U16(&map->slot_first[slot]);count=ESCX_ROM_READ_U8(&map->slot_count[slot]);if((ESCX_UINT16_T)(first+count)>map->state_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){state=ESCX_ROM_READ_U8(&map->states[first+i]);if((state==ESCX_NO_STATE)||((ESCX_UINT16_T)state>=m->definition->state_count))return ESCX_STATUS_INVALID_ARGUMENT;}}
+ if((m->history==(ESCX_HistoryStorage*)0)||(map->slot_count_total!=m->history->slot_count)||(m->running!=ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT;
+ for(slot=0U;slot<m->history->slot_count;++slot){
+  found=ESCX_FALSE;history_state=ESCX_NO_STATE;
+  for(j=1U;j<m->definition->state_count;++j){state=(ESCX_BYTE_T)j;type=Type(m,state);if(((type==ESCX_STATE_HISTORY_SHALLOW)||(type==ESCX_STATE_HISTORY_DEEP))&&(HistorySlot(m,state)==slot)){if(found!=ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;found=ESCX_TRUE;history_state=state;}}
+  if(found==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
+  owner=Parent(m,history_state);if(owner==ESCX_NO_STATE)return ESCX_STATUS_INVALID_ARGUMENT;
+  first=ESCX_ROM_READ_U16(&map->slot_first[slot]);count=ESCX_ROM_READ_U8(&map->slot_count[slot]);if((ESCX_UINT16_T)(first+count)>map->state_count)return ESCX_STATUS_INVALID_ARGUMENT;
+  memset(seen,0,sizeof(seen));previous=ESCX_NO_STATE;
+  for(i=0U;i<count;++i){state=ESCX_ROM_READ_U8(&map->states[first+i]);if((state==ESCX_NO_STATE)||((ESCX_UINT16_T)state>=m->definition->state_count)||((seen[state>>3]&(ESCX_BYTE_T)(1U<<(state&7U)))!=0U))return ESCX_STATUS_INVALID_ARGUMENT;if(IsDescendantOf(m,state,owner)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if((Type(m,state)==ESCX_STATE_HISTORY_SHALLOW)||(Type(m,state)==ESCX_STATE_HISTORY_DEEP))return ESCX_STATUS_INVALID_ARGUMENT;if(Type(m,history_state)==ESCX_STATE_HISTORY_SHALLOW){if(Parent(m,state)!=owner)return ESCX_STATUS_INVALID_ARGUMENT;}else if(previous!=ESCX_NO_STATE){if(StateDepth(m,previous)>StateDepth(m,state))return ESCX_STATUS_INVALID_ARGUMENT;if((StateDepth(m,previous)==StateDepth(m,state))&&(StateOrder(m,previous)>=StateOrder(m,state)))return ESCX_STATUS_INVALID_ARGUMENT;}
+   seen[state>>3]=(ESCX_BYTE_T)(seen[state>>3]|(ESCX_BYTE_T)(1U<<(state&7U)));previous=state;
+  }
+ }
  m->history_map=map;return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureFastDispatch(ESCX_StateMachine*m,const ESCX_FastDispatch*fast)
