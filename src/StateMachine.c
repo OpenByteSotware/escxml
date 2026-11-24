@@ -56,7 +56,7 @@ void ESCX_StateMachineInit(ESCX_StateMachine*m,const ESCX_StateMachineDefinition
 #if ESCX_ENABLE_DELAYED_SENDS
 {ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;}}
 #endif
-m->active_bits=b;m->active_byte_count=z;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->event_parent=(const ESCX_BYTE_T*)0;m->event_parent_count=0U;m->wildcard_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->reporting_error=ESCX_FALSE;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;
+m->active_bits=b;m->active_byte_count=z;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->reporting_error=ESCX_FALSE;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;
 #if ESCX_ENABLE_TIMERS
 m->start_timer=st;m->cancel_timer=ct;m->timer_context=(void*)0;
 #else
@@ -219,7 +219,7 @@ static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine*m,ESCX_BYTE_T e,void*d)
  }
  return ExecuteSet(m,selected,selected_count,d);
 }
-static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine*m){ESCX_BYTE_T i,s,depth;ESCX_UINT16_T sid,tid;ESCX_SelectorFunction f;for(i=0U;i<m->active_atomic_count;++i){s=m->active_atomic_states[i];depth=0U;while(s!=ESCX_NO_STATE){sid=EventlessSelector(m,s);if((sid!=ESCX_NO_SELECTOR)&&(sid<m->definition->selector_count)){f=ReadSelector(&m->definition->selectors[sid]);if(f==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;tid=f(m,(void*)0);if(tid!=ESCX_NO_TRANSITION){m->current_event=ESCX_NO_EVENT;m->event_parent=(const ESCX_BYTE_T*)0;m->event_parent_count=0U;m->wildcard_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;{ESCX_UINT16_T one[1];one[0]=tid;return ExecuteSet(m,one,1U,(void*)0);}}}s=Parent(m,s);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;}}return ESCX_STATUS_IGNORED;}
+static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine*m){ESCX_BYTE_T i,s,depth;ESCX_UINT16_T sid,tid;ESCX_SelectorFunction f;for(i=0U;i<m->active_atomic_count;++i){s=m->active_atomic_states[i];depth=0U;while(s!=ESCX_NO_STATE){sid=EventlessSelector(m,s);if((sid!=ESCX_NO_SELECTOR)&&(sid<m->definition->selector_count)){f=ReadSelector(&m->definition->selectors[sid]);if(f==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;tid=f(m,(void*)0);if(tid!=ESCX_NO_TRANSITION){m->current_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;{ESCX_UINT16_T one[1];one[0]=tid;return ExecuteSet(m,one,1U,(void*)0);}}}s=Parent(m,s);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;}}return ESCX_STATUS_IGNORED;}
 static ESCX_ProcessStatus Stabilize(ESCX_StateMachine*m){ESCX_UINT16_T steps=0U;ESCX_ProcessStatus r;ESCX_QueuedEvent q;for(;;){r=ProcessEventless(m);if(r==ESCX_STATUS_PROCESSED){if(++steps>ESCX_MAX_MICROSTEPS)return ESCX_STATUS_MICROSTEP_LIMIT;continue;}if(r!=ESCX_STATUS_IGNORED)return r;if(ESCX_EventQueuePop(&m->internal_queue,&q)!=ESCX_FALSE){
 #if ESCX_ENABLE_EVENT_DATA
 {ESCX_Event event;event.name_id=q.event_id;event.type=q.event_type;event.origin_type=q.origin_type;event.invoke_id=q.invoke_id;event.send_id=q.send_id;event.data=q.event_data;SetCurrentEvent(m,&event);}r=ProcessEvent(m,q.event_id,q.event_data);
@@ -230,7 +230,7 @@ if((r!=ESCX_STATUS_PROCESSED)&&(r!=ESCX_STATUS_IGNORED)){return r;}
 if(++steps>ESCX_MAX_MICROSTEPS){return ESCX_STATUS_MICROSTEP_LIMIT;}
 continue;}return ESCX_STATUS_PROCESSED;}}
 static ESCX_ProcessStatus Macrostep(ESCX_StateMachine*m,ESCX_BYTE_T e,void*d){ESCX_ProcessStatus r;r=ForwardExternalToInvokes(m,e,d);if(r!=ESCX_STATUS_PROCESSED)return r;r=ProcessEvent(m,e,d);if((r!=ESCX_STATUS_PROCESSED)&&(r!=ESCX_STATUS_IGNORED))return r;r=Stabilize(m);return r;}
-ESCX_ProcessStatus ESCX_StateMachineStart(ESCX_StateMachine*m){ESCX_ProcessStatus r;if((m==(ESCX_StateMachine*)0)||(m->definition==(const ESCX_StateMachineDefinition*)0))return ESCX_STATUS_INVALID_ARGUMENT;if(m->running!=ESCX_FALSE)return ESCX_STATUS_IGNORED;m->finished=ESCX_FALSE;m->running=ESCX_TRUE;r=EnterInitial(m,m->definition->initial_state,(void*)0);if(r!=ESCX_STATUS_PROCESSED)return r;m->processing=ESCX_TRUE;r=Stabilize(m);m->processing=ESCX_FALSE;return r;}
+ESCX_ProcessStatus ESCX_StateMachineStart(ESCX_StateMachine*m){ESCX_ProcessStatus r;if((m==(ESCX_StateMachine*)0)||(m->definition==(const ESCX_StateMachineDefinition*)0))return ESCX_STATUS_INVALID_ARGUMENT;if(m->running!=ESCX_FALSE)return ESCX_STATUS_IGNORED;memset(m->active_bits,0,m->active_byte_count);m->active_atomic_count=0U;ESCX_EventQueueInit(&m->internal_queue);ESCX_EventQueueInit(&m->external_queue);m->current_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;m->finished=ESCX_FALSE;m->running=ESCX_TRUE;r=EnterInitial(m,m->definition->initial_state,(void*)0);if(r!=ESCX_STATUS_PROCESSED)return r;m->processing=ESCX_TRUE;r=Stabilize(m);m->processing=ESCX_FALSE;return r;}
 ESCX_ProcessStatus ESCX_StateMachineRaiseEvent(ESCX_StateMachine*m,const ESCX_Event*event){if((m==(ESCX_StateMachine*)0)||(event==(const ESCX_Event*)0)||(m->running==ESCX_FALSE))return ESCX_STATUS_NOT_RUNNING;if(event->name_id>=m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;return ESCX_EventQueuePushEx(&m->internal_queue,event->name_id,event->type,event->origin_type,event->invoke_id,event->send_id,event->data)?ESCX_STATUS_PROCESSED:ESCX_STATUS_QUEUE_FULL;}
 ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine*m,ESCX_BYTE_T e,void*d){ESCX_Event event;event.name_id=e;event.type=ESCX_EVENT_TYPE_INTERNAL;event.origin_type=ESCX_EVENT_ORIGIN_SCXML;event.invoke_id=ESCX_NO_INVOKE;event.send_id=ESCX_NO_SEND_ID;event.data=d;return ESCX_StateMachineRaiseEvent(m,&event);}
 ESCX_ProcessStatus ESCX_StateMachineSendEvent(ESCX_StateMachine*m,const ESCX_Event*event){ESCX_ProcessStatus r;ESCX_QueuedEvent q;if((m==(ESCX_StateMachine*)0)||(event==(const ESCX_Event*)0)||(m->definition==(const ESCX_StateMachineDefinition*)0))return ESCX_STATUS_INVALID_ARGUMENT;if(m->running==ESCX_FALSE)return ESCX_STATUS_NOT_RUNNING;if(event->name_id>=m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;if(m->processing!=ESCX_FALSE)return ESCX_EventQueuePushEx(&m->external_queue,event->name_id,event->type,event->origin_type,event->invoke_id,event->send_id,event->data)?ESCX_STATUS_PROCESSED:ESCX_STATUS_QUEUE_FULL;m->processing=ESCX_TRUE;SetCurrentEvent(m,event);r=Macrostep(m,event->name_id,event->data);while((r==ESCX_STATUS_PROCESSED)&&(ESCX_EventQueuePop(&m->external_queue,&q)!=ESCX_FALSE)){
@@ -241,9 +241,38 @@ r=Macrostep(m,q.event_id,(void*)0);
 #endif
 }m->processing=ESCX_FALSE;return r;}
 ESCX_ProcessStatus ESCX_StateMachineSend(ESCX_StateMachine*m,ESCX_BYTE_T e,void*d){ESCX_Event event;event.name_id=e;event.type=ESCX_EVENT_TYPE_EXTERNAL;event.origin_type=ESCX_EVENT_ORIGIN_PLATFORM;event.invoke_id=ESCX_NO_INVOKE;event.send_id=ESCX_NO_SEND_ID;event.data=d;return ESCX_StateMachineSendEvent(m,&event);}
-void ESCX_StateMachineStop(ESCX_StateMachine*m){ESCX_BYTE_T state;if((m==(ESCX_StateMachine*)0)||(m->running==ESCX_FALSE))return;while(m->active_atomic_count!=0U){state=m->active_atomic_states[m->active_atomic_count-1U];CallState(m,state,(void*)0,1);SetActive(m,state,ESCX_FALSE);--m->active_atomic_count;}memset(m->active_bits,0,m->active_byte_count);m->running=ESCX_FALSE;m->processing=ESCX_FALSE;ESCX_EventQueueInit(&m->internal_queue);ESCX_EventQueueInit(&m->external_queue);
+static void ExitCompleteConfiguration(ESCX_StateMachine*m,void*d)
+{
+ ESCX_BYTE_T depth,state,best,best_order;
+ for(depth=ESCX_MAX_HIERARCHY_DEPTH;;--depth){
+  for(;;){
+   best=ESCX_NO_STATE;best_order=0U;
+   for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state){
+    if((IsActive(m,state)!=ESCX_FALSE)&&(StateDepth(m,state)==depth)){
+     if((best==ESCX_NO_STATE)||(StateOrder(m,state)>best_order)){best=state;best_order=StateOrder(m,state);}
+    }
+   }
+   if(best==ESCX_NO_STATE)break;
+   CallState(m,best,d,1);SetActive(m,best,ESCX_FALSE);RemoveAtomic(m,best);
+  }
+  if(depth==0U)break;
+ }
+}
+void ESCX_StateMachineStop(ESCX_StateMachine*m)
+{
+ if((m==(ESCX_StateMachine*)0)||(m->running==ESCX_FALSE))return;
+ ExitCompleteConfiguration(m,(void*)0);
+ memset(m->active_bits,0,m->active_byte_count);m->active_atomic_count=0U;
+ m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;
+ m->current_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;
+ m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;
+ m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;
+ ESCX_EventQueueInit(&m->internal_queue);ESCX_EventQueueInit(&m->external_queue);
 #if ESCX_ENABLE_DELAYED_SENDS
-{ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){if((m->delayed_sends[di].active!=ESCX_FALSE)&&(m->cancel_timer!=(ESCX_CancelTimerFunction)0))(void)m->cancel_timer(m,m->delayed_sends[di].timer_id,m->timer_context);m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;}}
+ {ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){
+  if((m->delayed_sends[di].active!=ESCX_FALSE)&&(m->cancel_timer!=(ESCX_CancelTimerFunction)0))(void)m->cancel_timer(m,m->delayed_sends[di].timer_id,m->timer_context);
+  m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;
+ }}
 #endif
 }
 static ESCX_ProcessStatus ReportErrorInternal(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
