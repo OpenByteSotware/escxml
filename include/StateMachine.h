@@ -90,14 +90,17 @@ typedef enum ESCX_ErrorCode {
    ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
    ESCX_UINT16_T send_id; unsigned long delay_ticks; void *event_data;
   } ESCX_SendRequest;
+  typedef struct ESCX_TargetedSendRequest ESCX_TargetedSendRequest;
   typedef enum ESCX_ExecutableKind {
    ESCX_EXECUTABLE_GENERATED=0, ESCX_EXECUTABLE_RAISE=1,
-   ESCX_EXECUTABLE_SEND=2, ESCX_EXECUTABLE_CANCEL=3
+   ESCX_EXECUTABLE_SEND=2, ESCX_EXECUTABLE_CANCEL=3,
+   ESCX_EXECUTABLE_TARGETED_SEND=4
   } ESCX_ExecutableKind;
   typedef int (*ESCX_ExecutableFunction)(struct ESCX_StateMachine *, void *);
   typedef struct ESCX_ExecutableStep {
    ESCX_BYTE_T kind; ESCX_ExecutableFunction function; void *context;
    const ESCX_Event *event; const ESCX_SendRequest *send_request; ESCX_UINT16_T send_id;
+   const ESCX_TargetedSendRequest *targeted_send_request;
   } ESCX_ExecutableStep;
   typedef struct ESCX_ExecutableBlock {
    const ESCX_ExecutableStep *steps; ESCX_UINT16_T step_count;
@@ -106,9 +109,14 @@ typedef enum ESCX_ErrorCode {
   typedef enum ESCX_IOTargetType { ESCX_IO_TARGET_CURRENT_SESSION=0, ESCX_IO_TARGET_INTERNAL=1, ESCX_IO_TARGET_PARENT_SESSION=2, ESCX_IO_TARGET_INVOKE=3, ESCX_IO_TARGET_SESSION=4, ESCX_IO_TARGET_CUSTOM=5 } ESCX_IOTargetType;
   typedef struct ESCX_SendTargetDescriptor { ESCX_BYTE_T processor; ESCX_BYTE_T target_type; ESCX_UINT16_T target_id; } ESCX_SendTargetDescriptor;
   typedef int (*ESCX_IOProcessorSendFunction)(struct ESCX_StateMachine *,const ESCX_SendTargetDescriptor *,const ESCX_Event *,void *);
+  struct ESCX_TargetedSendRequest {
+   ESCX_Event event; ESCX_SendTargetDescriptor target;
+   unsigned long delay_ticks;
+  };
   typedef struct ESCX_DelayedSend {
    ESCX_BOOL_T active; ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
    ESCX_UINT16_T send_id; ESCX_TimerId timer_id; ESCX_BYTE_T event_type; ESCX_BYTE_T origin_type; ESCX_BYTE_T invoke_id; void *event_data;
+ ESCX_BOOL_T uses_target_descriptor; ESCX_SendTargetDescriptor target_descriptor;
   } ESCX_DelayedSend;
   typedef enum ESCX_ProcessStatus {
  ESCX_STATUS_IGNORED=0, ESCX_STATUS_PROCESSED=1, ESCX_STATUS_INVALID_EVENT=2,
@@ -201,6 +209,7 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
   ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine *,const ESCX_SendRequest *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureIOProcessor(ESCX_StateMachine *,ESCX_IOProcessorSendFunction,void *);
   ESCX_ProcessStatus ESCX_StateMachineSendToTarget(ESCX_StateMachine *,const ESCX_SendTargetDescriptor *,const ESCX_Event *);
+  ESCX_ProcessStatus ESCX_StateMachineSendTargetedRequest(ESCX_StateMachine *,const ESCX_TargetedSendRequest *);
   ESCX_ProcessStatus ESCX_StateMachineCancelSend(ESCX_StateMachine *,ESCX_UINT16_T);
   ESCX_ProcessStatus ESCX_StateMachineExecuteContent(ESCX_StateMachine *,const ESCX_ExecutableBlock *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureErrorEvents(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T);
@@ -216,10 +225,11 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
 #define ESCX_SEND_TARGET_SCXML_SESSION(id) {ESCX_IO_PROCESSOR_SCXML,ESCX_IO_TARGET_SESSION,(ESCX_UINT16_T)(id)}
 #define ESCX_SEND_TARGET_CUSTOM(processor_id,target_id) {(ESCX_BYTE_T)(processor_id),ESCX_IO_TARGET_CUSTOM,(ESCX_UINT16_T)(target_id)}
 #define ESCX_EXECUTABLE_STEPS_BEGIN(n) static const ESCX_ExecutableStep n##_executable_steps[] ESCX_ROM={
-#define ESCX_EXECUTABLE_GENERATED_STEP(function,context) {ESCX_EXECUTABLE_GENERATED,function,context,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID},
-#define ESCX_EXECUTABLE_RAISE_STEP(event_ptr) {ESCX_EXECUTABLE_RAISE,(ESCX_ExecutableFunction)0,(void*)0,event_ptr,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID},
-#define ESCX_EXECUTABLE_SEND_STEP(request_ptr) {ESCX_EXECUTABLE_SEND,(ESCX_ExecutableFunction)0,(void*)0,(const ESCX_Event*)0,request_ptr,ESCX_NO_SEND_ID},
-#define ESCX_EXECUTABLE_CANCEL_STEP(send_id_value) {ESCX_EXECUTABLE_CANCEL,(ESCX_ExecutableFunction)0,(void*)0,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,(ESCX_UINT16_T)(send_id_value)},
+#define ESCX_EXECUTABLE_GENERATED_STEP(function,context) {ESCX_EXECUTABLE_GENERATED,function,context,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID,(const ESCX_TargetedSendRequest*)0},
+#define ESCX_EXECUTABLE_RAISE_STEP(event_ptr) {ESCX_EXECUTABLE_RAISE,(ESCX_ExecutableFunction)0,(void*)0,event_ptr,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID,(const ESCX_TargetedSendRequest*)0},
+#define ESCX_EXECUTABLE_SEND_STEP(request_ptr) {ESCX_EXECUTABLE_SEND,(ESCX_ExecutableFunction)0,(void*)0,(const ESCX_Event*)0,request_ptr,ESCX_NO_SEND_ID,(const ESCX_TargetedSendRequest*)0},
+#define ESCX_EXECUTABLE_TARGETED_SEND_STEP(request_ptr) {ESCX_EXECUTABLE_TARGETED_SEND,(ESCX_ExecutableFunction)0,(void*)0,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID,request_ptr},
+#define ESCX_EXECUTABLE_CANCEL_STEP(send_id_value) {ESCX_EXECUTABLE_CANCEL,(ESCX_ExecutableFunction)0,(void*)0,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,(ESCX_UINT16_T)(send_id_value),(const ESCX_TargetedSendRequest*)0},
 #define ESCX_EXECUTABLE_STEPS_END() };
 #define ESCX_DEFINE_EXECUTABLE_BLOCK(n) static const ESCX_ExecutableBlock n##_executable_block={n##_executable_steps,(ESCX_UINT16_T)(sizeof(n##_executable_steps)/sizeof(n##_executable_steps[0]))}
 #define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
