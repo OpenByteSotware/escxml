@@ -206,6 +206,7 @@ ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine *);
  ESCX_BOOL_T ESCX_StateMachineIsRunning(const ESCX_StateMachine *);
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine *,const ESCX_InvokeDescriptor *,ESCX_InvokeInstance *,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine *,ESCX_BYTE_T,void *);
+  ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine *,ESCX_BYTE_T,const ESCX_Event *);
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T,void *);
   ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine *,ESCX_BYTE_T,const ESCX_Event *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine *,ESCX_StateMachine *,ESCX_BYTE_T);
