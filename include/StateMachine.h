@@ -117,6 +117,7 @@ typedef struct ESCX_MicrostepWorkspace {
 typedef struct ESCX_FastDispatch {
  const ESCX_UINT16_T *state_base; const ESCX_BYTE_T *slot_owner;
  const ESCX_UINT16_T *slot_selector; ESCX_UINT16_T slot_count;
+ const ESCX_UINT16_T *eventless_selector; ESCX_UINT16_T eventless_count;
 } ESCX_FastDispatch;
 typedef struct ESCX_ConflictMap {
  const ESCX_BYTE_T *bits; ESCX_UINT16_T transition_count; ESCX_UINT16_T bytes_per_row;
@@ -245,7 +246,11 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
 #define ESCX_FAST_SLOT_OWNER_END() };
 #define ESCX_FAST_SLOT_SELECTOR_BEGIN(n) static const ESCX_UINT16_T n##_fast_slot_selector[] ESCX_ROM={
 #define ESCX_FAST_SLOT_SELECTOR_END() };
-#define ESCX_DEFINE_FAST_DISPATCH(n) static const ESCX_FastDispatch n##_fast_dispatch={n##_fast_state_base,n##_fast_slot_owner,n##_fast_slot_selector,(ESCX_UINT16_T)(sizeof(n##_fast_slot_owner)/sizeof(n##_fast_slot_owner[0]))}
+#define ESCX_DEFINE_FAST_DISPATCH(n) static const ESCX_FastDispatch n##_fast_dispatch={n##_fast_state_base,n##_fast_slot_owner,n##_fast_slot_selector,(ESCX_UINT16_T)(sizeof(n##_fast_slot_owner)/sizeof(n##_fast_slot_owner[0])),(const ESCX_UINT16_T*)0,0U}
+#define ESCX_FAST_EVENTLESS_BEGIN(n) static const ESCX_UINT16_T n##_fast_eventless_selector[] ESCX_ROM={
+#define ESCX_FAST_EVENTLESS_SELECTOR(v) (ESCX_UINT16_T)(v),
+#define ESCX_FAST_EVENTLESS_END() };
+#define ESCX_DEFINE_FAST_DISPATCH_EVENTLESS(n) static const ESCX_FastDispatch n##_fast_dispatch={n##_fast_state_base,n##_fast_slot_owner,n##_fast_slot_selector,(ESCX_UINT16_T)(sizeof(n##_fast_slot_owner)/sizeof(n##_fast_slot_owner[0])),n##_fast_eventless_selector,(ESCX_UINT16_T)(sizeof(n##_fast_eventless_selector)/sizeof(n##_fast_eventless_selector[0]))}
 #define ESCX_DECLARE_WORKSPACE(n,exit_capacity,entry_capacity,state_count) \
  static ESCX_BYTE_T n##_exit_states[(exit_capacity)]; \
  static ESCX_BYTE_T n##_entry_states[(entry_capacity)]; \

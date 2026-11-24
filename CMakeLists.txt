@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(escxml_embedded_runtime VERSION 0.26.0 LANGUAGES C CXX)
+project(escxml_embedded_runtime VERSION 0.27.0 LANGUAGES C CXX)
 add_library(escxml_runtime src/AssertHandler.c src/StateMachine.c src/StateMachineEventQueue.c)
 add_library(ESCXML::Runtime ALIAS escxml_runtime)
 target_include_directories(escxml_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

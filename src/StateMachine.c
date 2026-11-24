@@ -113,6 +113,7 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureFastDispatch(ESCX_StateMachine*m,co
 {
  if((m==(ESCX_StateMachine*)0)||(fast==(const ESCX_FastDispatch*)0)||(fast->state_base==(const ESCX_UINT16_T*)0)||(fast->slot_owner==(const ESCX_BYTE_T*)0)||(fast->slot_selector==(const ESCX_UINT16_T*)0))return ESCX_STATUS_INVALID_ARGUMENT;
  if(m->running!=ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
+ if((fast->eventless_selector!=(const ESCX_UINT16_T*)0)&&(fast->eventless_count<m->definition->state_count))return ESCX_STATUS_INVALID_ARGUMENT;
  m->fast_dispatch=fast;return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureConflictMap(ESCX_StateMachine*m,const ESCX_ConflictMap*map)
@@ -306,7 +307,30 @@ static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine*m,ESCX_BYTE_T e,void*d)
  }
  return ExecuteSet(m,selected,selected_count,d);
 }
-static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine*m){ESCX_BYTE_T i,s,depth;ESCX_UINT16_T sid,tid;ESCX_SelectorFunction f;for(i=0U;i<m->active_atomic_count;++i){s=m->active_atomic_states[i];depth=0U;while(s!=ESCX_NO_STATE){sid=EventlessSelector(m,s);if((sid!=ESCX_NO_SELECTOR)&&(sid<m->definition->selector_count)){f=ReadSelector(&m->definition->selectors[sid]);if(f==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;tid=f(m,(void*)0);if(tid!=ESCX_NO_TRANSITION){m->current_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;{ESCX_UINT16_T one[1];one[0]=tid;return ExecuteSet(m,one,1U,(void*)0);}}}if(m->fast_dispatch!=(const ESCX_FastDispatch*)0)break;s=Parent(m,s);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;}}return ESCX_STATUS_IGNORED;}
+static ESCX_UINT16_T FindEffectiveEventlessSelector(const ESCX_StateMachine*m,ESCX_BYTE_T leaf)
+{
+ const ESCX_FastDispatch*fast;ESCX_BYTE_T state,depth;ESCX_UINT16_T selector;
+ fast=m->fast_dispatch;
+ if((fast!=(const ESCX_FastDispatch*)0)&&(fast->eventless_selector!=(const ESCX_UINT16_T*)0)&&(leaf<fast->eventless_count))return ESCX_ROM_READ_U16(&fast->eventless_selector[leaf]);
+ state=leaf;depth=0U;
+ while(state!=ESCX_NO_STATE){selector=EventlessSelector(m,state);if(selector!=ESCX_NO_SELECTOR)return selector;state=Parent(m,state);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_NO_SELECTOR;}
+ return ESCX_NO_SELECTOR;
+}
+static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine*m)
+{
+ ESCX_UINT16_T selected[ESCX_MAX_ENABLED_TRANSITIONS];ESCX_BYTE_T selected_count,i,leaf;ESCX_UINT16_T selector_id,transition_id;ESCX_SelectorFunction selector;ESCX_ProcessStatus status;
+ selected_count=0U;
+ m->current_event=ESCX_NO_EVENT;m->current_event_descriptor.name_id=ESCX_NO_EVENT;m->current_event_descriptor.type=ESCX_EVENT_TYPE_INTERNAL;m->current_event_descriptor.origin_type=ESCX_EVENT_ORIGIN_NONE;m->current_event_descriptor.invoke_id=ESCX_NO_INVOKE;m->current_event_descriptor.send_id=ESCX_NO_SEND_ID;m->current_event_descriptor.data=(void*)0;
+ for(i=0U;i<m->active_atomic_count;++i){
+  leaf=m->active_atomic_states[i];selector_id=FindEffectiveEventlessSelector(m,leaf);
+  if(selector_id==ESCX_NO_SELECTOR)continue;
+  if(selector_id>=m->definition->selector_count)return ESCX_STATUS_INVALID_ARGUMENT;
+  selector=ReadSelector(&m->definition->selectors[selector_id]);if(selector==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;
+  transition_id=selector(m,(void*)0);if(transition_id==ESCX_NO_TRANSITION)continue;
+  status=AddEnabledTransition(m,selected,&selected_count,transition_id);if(status!=ESCX_STATUS_PROCESSED)return status;
+ }
+ return ExecuteSet(m,selected,selected_count,(void*)0);
+}
 static ESCX_ProcessStatus Stabilize(ESCX_StateMachine*m){ESCX_UINT16_T steps=0U;ESCX_ProcessStatus r;ESCX_QueuedEvent q;for(;;){r=ProcessEventless(m);if(r==ESCX_STATUS_PROCESSED){if(++steps>ESCX_MAX_MICROSTEPS)return ESCX_STATUS_MICROSTEP_LIMIT;continue;}if(r!=ESCX_STATUS_IGNORED)return r;if(ESCX_EventQueuePop(&m->internal_queue,&q)!=ESCX_FALSE){
 #if ESCX_ENABLE_EVENT_DATA
 {ESCX_Event event;event.name_id=q.event_id;event.type=q.event_type;event.origin_type=q.origin_type;event.invoke_id=q.invoke_id;event.send_id=q.send_id;event.data=q.event_data;SetCurrentEvent(m,&event);}r=ProcessEvent(m,q.event_id,q.event_data);
