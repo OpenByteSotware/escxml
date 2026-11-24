@@ -29,6 +29,8 @@ static ESCX_UINT16_T StateU16(const ESCX_StateMachine*m,ESCX_BYTE_T id,unsigned 
 static ESCX_BYTE_T Parent(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(parent_state));}
 static ESCX_BYTE_T Initial(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(initial_child));}
 static ESCX_BYTE_T Type(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(state_type));}
+static ESCX_BYTE_T StateDepth(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(depth));}
+static ESCX_BYTE_T StateOrder(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(document_order));}
 static ESCX_BYTE_T HistorySlot(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(history_slot));}
 static ESCX_UINT16_T HistoryDefaultPlan(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU16(m,s,OFFSETOF_STATE(history_default_plan));}
 static ESCX_BYTE_T DoneEvent(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(done_event));}
@@ -54,7 +56,7 @@ void ESCX_StateMachineInit(ESCX_StateMachine*m,const ESCX_StateMachineDefinition
 #if ESCX_ENABLE_DELAYED_SENDS
 {ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;}}
 #endif
-m->active_bits=b;m->active_byte_count=z;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->reporting_error=ESCX_FALSE;m->reporting_error=ESCX_FALSE;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;
+m->active_bits=b;m->active_byte_count=z;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->reporting_error=ESCX_FALSE;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;
 #if ESCX_ENABLE_TIMERS
 m->start_timer=st;m->cancel_timer=ct;m->timer_context=(void*)0;
 #else
@@ -83,16 +85,71 @@ static ESCX_ProcessStatus CaptureHistoryState(ESCX_StateMachine*m,ESCX_BYTE_T hi
 static ESCX_ProcessStatus CaptureHistoriesForOwner(ESCX_StateMachine*m,ESCX_BYTE_T owner){ESCX_UINT16_T first,i;ESCX_BYTE_T count,child,type;first=FirstChild(m,owner);count=ChildCount(m,owner);if((ESCX_UINT16_T)(first+count)>m->definition->child_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){child=ESCX_ROM_READ_U8(&m->definition->children[first+i]);type=Type(m,child);if((type==ESCX_STATE_HISTORY_SHALLOW)||(type==ESCX_STATE_HISTORY_DEEP)){ESCX_ProcessStatus r;r=CaptureHistoryState(m,child);if(r!=ESCX_STATUS_PROCESSED)return r;}}return ESCX_STATUS_PROCESSED;}
 static ESCX_ProcessStatus RestoreDeep(ESCX_StateMachine*m,ESCX_BYTE_T owner,const ESCX_BYTE_T*bits,void*d){ESCX_BYTE_T depth,state,type;for(depth=1U;depth<=ESCX_MAX_HIERARCHY_DEPTH;++depth){for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state){if((HistoryHasBit(bits,state)!=ESCX_FALSE)&&(IsDescendantOf(m,state,owner)!=ESCX_FALSE)&&(StateU8(m,state,OFFSETOF_STATE(depth))==depth)){if(IsActive(m,state)==ESCX_FALSE){SetActive(m,state,ESCX_TRUE);CallState(m,state,d,0);CallState(m,state,d,2);}type=Type(m,state);if((type==ESCX_STATE_ATOMIC)||(type==ESCX_STATE_FINAL)){if(AddAtomic(m,state)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_STATE_FINAL){ESCX_ProcessStatus r;r=NotifyFinalEntered(m,state);if(r!=ESCX_STATUS_PROCESSED)return r;}}}}}return ESCX_STATUS_PROCESSED;}
 static ESCX_ProcessStatus RestoreHistory(ESCX_StateMachine*m,ESCX_BYTE_T history_state,void*d){ESCX_BYTE_T slot,owner,state;ESCX_UINT16_T default_plan;ESCX_BYTE_T*bits;if(m->history==(ESCX_HistoryStorage*)0)return ESCX_STATUS_INVALID_ARGUMENT;slot=HistorySlot(m,history_state);if(slot>=m->history->slot_count)return ESCX_STATUS_INVALID_ARGUMENT;default_plan=HistoryDefaultPlan(m,history_state);if(m->history->valid[slot]==0U)return RunPlan(m,default_plan,d,ESCX_TRUE);bits=HistoryBits(m,slot);owner=Parent(m,history_state);if(Type(m,history_state)==ESCX_STATE_HISTORY_SHALLOW){for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state)if(HistoryHasBit(bits,state)!=ESCX_FALSE){ESCX_ProcessStatus r;r=EnterStateTree(m,state,d,0U);if(r!=ESCX_STATUS_PROCESSED)return r;}return ESCX_STATUS_PROCESSED;}return RestoreDeep(m,owner,bits,d);}
-static ESCX_ProcessStatus CaptureHistoriesForExitPlan(ESCX_StateMachine*m,ESCX_UINT16_T pid){const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count,state,type;if(pid==ESCX_NO_PLAN)return ESCX_STATUS_PROCESSED;if(pid>=m->definition->plan_count)return ESCX_STATUS_INVALID_ARGUMENT;p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);for(i=0U;i<count;++i){state=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);type=Type(m,state);if((type==ESCX_STATE_COMPOUND)||(type==ESCX_STATE_PARALLEL)){ESCX_ProcessStatus r;r=CaptureHistoriesForOwner(m,state);if(r!=ESCX_STATUS_PROCESSED)return r;}}return ESCX_STATUS_PROCESSED;}
-static ESCX_ProcessStatus RunPlan(ESCX_StateMachine*m,ESCX_UINT16_T pid,void*d,ESCX_BOOL_T entering){const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count,s;if(pid==ESCX_NO_PLAN)return ESCX_STATUS_PROCESSED;if(pid>=m->definition->plan_count)return ESCX_STATUS_INVALID_ARGUMENT;p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);if((ESCX_UINT16_T)(first+count)>m->definition->plan_state_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){s=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);if(entering!=ESCX_FALSE){if((Type(m,s)==ESCX_STATE_HISTORY_SHALLOW)||(Type(m,s)==ESCX_STATE_HISTORY_DEEP)){ESCX_ProcessStatus hr;hr=RestoreHistory(m,s,d);if(hr!=ESCX_STATUS_PROCESSED)return hr;continue;}SetActive(m,s,ESCX_TRUE);CallState(m,s,d,0);CallState(m,s,d,2);if((Type(m,s)==ESCX_STATE_ATOMIC)||(Type(m,s)==ESCX_STATE_FINAL)){if(AddAtomic(m,s)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(Type(m,s)==ESCX_STATE_FINAL){ESCX_ProcessStatus cr;cr=NotifyFinalEntered(m,s);if(cr!=ESCX_STATUS_PROCESSED)return cr;}}}else{CallState(m,s,d,1);SetActive(m,s,ESCX_FALSE);RemoveAtomic(m,s);}}return ESCX_STATUS_PROCESSED;}
-static ESCX_ProcessStatus Execute(ESCX_StateMachine*m,ESCX_UINT16_T tid,void*d){const ESCX_Transition*t;ESCX_UINT16_T xp,ep;ESCX_BYTE_T type;ESCX_ActionFunction a;ESCX_ProcessStatus r;if((tid==ESCX_NO_TRANSITION)||(tid>=m->definition->transition_count))return ESCX_STATUS_IGNORED;t=&m->definition->transitions[tid];type=ESCX_ROM_READ_U8(&t->type);xp=ESCX_ROM_READ_U16(&t->exit_plan);ep=ESCX_ROM_READ_U16(&t->entry_plan);if(type!=ESCX_TRANSITION_TARGETLESS){r=CaptureHistoriesForExitPlan(m,xp);if(r!=ESCX_STATUS_PROCESSED)return r;r=RunPlan(m,xp,d,ESCX_FALSE);if(r!=ESCX_STATUS_PROCESSED)return r;}a=ReadAction(&t->action);if(a!=(ESCX_ActionFunction)0)a(m,d);if(type!=ESCX_TRANSITION_TARGETLESS){r=RunPlan(m,ep,d,ESCX_TRUE);if(r!=ESCX_STATUS_PROCESSED)return r;}return ESCX_STATUS_PROCESSED;}
+static ESCX_ProcessStatus CaptureHistoriesForExitPlan(ESCX_StateMachine*m,ESCX_UINT16_T pid){const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count,state,type;if(pid==ESCX_NO_PLAN)return ESCX_STATUS_PROCESSED;
+ if(pid>=m->definition->plan_count)return ESCX_STATUS_INVALID_ARGUMENT;
+p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);for(i=0U;i<count;++i){state=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);type=Type(m,state);if((type==ESCX_STATE_COMPOUND)||(type==ESCX_STATE_PARALLEL)){ESCX_ProcessStatus r;r=CaptureHistoriesForOwner(m,state);if(r!=ESCX_STATUS_PROCESSED)return r;}}return ESCX_STATUS_PROCESSED;}
+static ESCX_ProcessStatus RunPlan(ESCX_StateMachine*m,ESCX_UINT16_T pid,void*d,ESCX_BOOL_T entering){const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count,s;if(pid==ESCX_NO_PLAN)return ESCX_STATUS_PROCESSED;
+ if(pid>=m->definition->plan_count)return ESCX_STATUS_INVALID_ARGUMENT;
+p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);if((ESCX_UINT16_T)(first+count)>m->definition->plan_state_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){s=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);if(entering!=ESCX_FALSE){if((Type(m,s)==ESCX_STATE_HISTORY_SHALLOW)||(Type(m,s)==ESCX_STATE_HISTORY_DEEP)){ESCX_ProcessStatus hr;hr=RestoreHistory(m,s,d);if(hr!=ESCX_STATUS_PROCESSED)return hr;continue;}SetActive(m,s,ESCX_TRUE);CallState(m,s,d,0);CallState(m,s,d,2);if((Type(m,s)==ESCX_STATE_ATOMIC)||(Type(m,s)==ESCX_STATE_FINAL)){if(AddAtomic(m,s)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(Type(m,s)==ESCX_STATE_FINAL){ESCX_ProcessStatus cr;cr=NotifyFinalEntered(m,s);if(cr!=ESCX_STATUS_PROCESSED)return cr;}}}else{CallState(m,s,d,1);SetActive(m,s,ESCX_FALSE);RemoveAtomic(m,s);}}return ESCX_STATUS_PROCESSED;}
 static ESCX_BOOL_T PlanHasState(const ESCX_StateMachine*m,ESCX_UINT16_T pid,ESCX_BYTE_T state){const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count;if(pid==ESCX_NO_PLAN)return ESCX_FALSE;if(pid>=m->definition->plan_count)return ESCX_FALSE;p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);for(i=0U;i<count;++i)if(ESCX_ROM_READ_U8(&m->definition->plan_states[first+i])==state)return ESCX_TRUE;return ESCX_FALSE;}
 static ESCX_BOOL_T Conflict(const ESCX_StateMachine*m,ESCX_UINT16_T a,ESCX_UINT16_T b){const ESCX_Transition*ta;const ESCX_Transition*tb;ESCX_UINT16_T pa,pb,i;const ESCX_StatePlan*p;ESCX_BYTE_T count,state;if(a==b)return ESCX_TRUE;ta=&m->definition->transitions[a];tb=&m->definition->transitions[b];pa=ESCX_ROM_READ_U16(&ta->exit_plan);pb=ESCX_ROM_READ_U16(&tb->exit_plan);if((pa==ESCX_NO_PLAN)||(pb==ESCX_NO_PLAN))return ESCX_FALSE;p=&m->definition->plans[pa];count=ESCX_ROM_READ_U8(&p->state_count);i=ESCX_ROM_READ_U16(&p->first_state);while(count--!=0U){state=ESCX_ROM_READ_U8(&m->definition->plan_states[i++]);if(PlanHasState(m,pb,state))return ESCX_TRUE;}return ESCX_FALSE;}
 static ESCX_BYTE_T DepthOfTransition(const ESCX_StateMachine*m,ESCX_UINT16_T t){return ESCX_ROM_READ_U8(&m->definition->transitions[t].source_depth);}
 static ESCX_BYTE_T OrderOfTransition(const ESCX_StateMachine*m,ESCX_UINT16_T t){return ESCX_ROM_READ_U8(&m->definition->transitions[t].document_order);}
-static ESCX_ProcessStatus ExecuteSet(ESCX_StateMachine*m,ESCX_UINT16_T*ids,ESCX_BYTE_T count,void*d){ESCX_BYTE_T i;ESCX_ProcessStatus r;for(i=0U;i<count;++i){r=Execute(m,ids[i],d);if(r!=ESCX_STATUS_PROCESSED)return r;}return count?ESCX_STATUS_PROCESSED:ESCX_STATUS_IGNORED;}
+static void WorkSetClear(ESCX_BYTE_T *bits){memset(bits,0,ESCX_ACTIVE_BYTES(ESCX_MAX_STATES));}
+static void WorkSetAdd(ESCX_BYTE_T *bits,ESCX_BYTE_T state){bits[state>>3]=(ESCX_BYTE_T)(bits[state>>3]|(ESCX_BYTE_T)(1U<<(state&7U)));}
+static ESCX_BOOL_T WorkSetHas(const ESCX_BYTE_T *bits,ESCX_BYTE_T state){return((bits[state>>3]&(ESCX_BYTE_T)(1U<<(state&7U)))!=0U)?ESCX_TRUE:ESCX_FALSE;}
+static ESCX_ProcessStatus AddPlanToWorkSet(const ESCX_StateMachine*m,ESCX_UINT16_T pid,ESCX_BYTE_T*bits)
+{
+ const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count,state;
+ if(pid==ESCX_NO_PLAN)return ESCX_STATUS_PROCESSED;
+ if(pid>=m->definition->plan_count)return ESCX_STATUS_INVALID_ARGUMENT;
+ p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);
+ if((ESCX_UINT16_T)(first+count)>m->definition->plan_state_count)return ESCX_STATUS_INVALID_ARGUMENT;
+ for(i=0U;i<count;++i){state=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);if(state!=ESCX_NO_STATE)WorkSetAdd(bits,state);}
+ return ESCX_STATUS_PROCESSED;
+}
+static ESCX_ProcessStatus ExitWorkSet(ESCX_StateMachine*m,const ESCX_BYTE_T*bits,void*d)
+{
+ ESCX_BYTE_T depth,state,best,best_order;
+ for(depth=ESCX_MAX_HIERARCHY_DEPTH;depth!=0U;--depth){
+  for(;;){best=ESCX_NO_STATE;best_order=0U;
+   for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state)if((WorkSetHas(bits,state)!=ESCX_FALSE)&&(IsActive(m,state)!=ESCX_FALSE)&&(StateDepth(m,state)==depth)){if((best==ESCX_NO_STATE)||(StateOrder(m,state)>best_order)){best=state;best_order=StateOrder(m,state);}}
+   if(best==ESCX_NO_STATE)break;
+   CallState(m,best,d,1);SetActive(m,best,ESCX_FALSE);RemoveAtomic(m,best);((ESCX_BYTE_T*)bits)[best>>3]=(ESCX_BYTE_T)(((ESCX_BYTE_T*)bits)[best>>3]&((ESCX_BYTE_T)~(ESCX_BYTE_T)(1U<<(best&7U))));
+  }
+ }
+ return ESCX_STATUS_PROCESSED;
+}
+static ESCX_ProcessStatus EnterWorkSet(ESCX_StateMachine*m,const ESCX_BYTE_T*bits,void*d)
+{
+ ESCX_BYTE_T depth,state,best,best_order,type;ESCX_ProcessStatus r;
+ for(depth=0U;depth<=ESCX_MAX_HIERARCHY_DEPTH;++depth){
+  for(;;){best=ESCX_NO_STATE;best_order=255U;
+   for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state)if((WorkSetHas(bits,state)!=ESCX_FALSE)&&(StateDepth(m,state)==depth)){if((best==ESCX_NO_STATE)||(StateOrder(m,state)<best_order)){best=state;best_order=StateOrder(m,state);}}
+   if(best==ESCX_NO_STATE)break;
+   ((ESCX_BYTE_T*)bits)[best>>3]=(ESCX_BYTE_T)(((ESCX_BYTE_T*)bits)[best>>3]&((ESCX_BYTE_T)~(ESCX_BYTE_T)(1U<<(best&7U))));type=Type(m,best);
+   if((type==ESCX_STATE_HISTORY_SHALLOW)||(type==ESCX_STATE_HISTORY_DEEP)){r=RestoreHistory(m,best,d);if(r!=ESCX_STATUS_PROCESSED)return r;continue;}
+   if(IsActive(m,best)==ESCX_FALSE){SetActive(m,best,ESCX_TRUE);CallState(m,best,d,0);CallState(m,best,d,2);}
+   if((type==ESCX_STATE_ATOMIC)||(type==ESCX_STATE_FINAL)){if(AddAtomic(m,best)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_STATE_FINAL){r=NotifyFinalEntered(m,best);if(r!=ESCX_STATUS_PROCESSED)return r;}}
+  }
+  if(depth==ESCX_MAX_HIERARCHY_DEPTH)break;
+ }
+ return ESCX_STATUS_PROCESSED;
+}
+static void SortTransitionsByDocumentOrder(const ESCX_StateMachine*m,ESCX_UINT16_T*ids,ESCX_BYTE_T count)
+{ESCX_BYTE_T i,j;ESCX_UINT16_T value;for(i=1U;i<count;++i){value=ids[i];j=i;while((j!=0U)&&(OrderOfTransition(m,ids[j-1U])>OrderOfTransition(m,value))){ids[j]=ids[j-1U];--j;}ids[j]=value;}}
+static ESCX_ProcessStatus ExecuteSet(ESCX_StateMachine*m,ESCX_UINT16_T*ids,ESCX_BYTE_T count,void*d)
+{
+ ESCX_BYTE_T exit_bits[ESCX_ACTIVE_BYTES(ESCX_MAX_STATES)];ESCX_BYTE_T entry_bits[ESCX_ACTIVE_BYTES(ESCX_MAX_STATES)];ESCX_BYTE_T i,type;ESCX_UINT16_T xp,ep;ESCX_ActionFunction action;ESCX_ProcessStatus r;const ESCX_Transition*t;
+ if(count==0U)return ESCX_STATUS_IGNORED;
+ WorkSetClear(exit_bits);WorkSetClear(entry_bits);
+ for(i=0U;i<count;++i){if(ids[i]>=m->definition->transition_count)return ESCX_STATUS_INVALID_ARGUMENT;t=&m->definition->transitions[ids[i]];type=ESCX_ROM_READ_U8(&t->type);if(type!=ESCX_TRANSITION_TARGETLESS){xp=ESCX_ROM_READ_U16(&t->exit_plan);ep=ESCX_ROM_READ_U16(&t->entry_plan);r=CaptureHistoriesForExitPlan(m,xp);if(r!=ESCX_STATUS_PROCESSED)return r;r=AddPlanToWorkSet(m,xp,exit_bits);if(r!=ESCX_STATUS_PROCESSED)return r;r=AddPlanToWorkSet(m,ep,entry_bits);if(r!=ESCX_STATUS_PROCESSED)return r;}}
+ r=ExitWorkSet(m,exit_bits,d);if(r!=ESCX_STATUS_PROCESSED)return r;SortTransitionsByDocumentOrder(m,ids,count);
+ for(i=0U;i<count;++i){t=&m->definition->transitions[ids[i]];action=ReadAction(&t->action);if(action!=(ESCX_ActionFunction)0)action(m,d);}
+ return EnterWorkSet(m,entry_bits,d);
+}
 static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine*m,ESCX_BYTE_T e,void*d){ESCX_UINT16_T selected[ESCX_MAX_ENABLED_TRANSITIONS];ESCX_BYTE_T selected_count=0U,leaf,s,depth,i,j;ESCX_UINT16_T sid,tid;ESCX_SelectorFunction f;if(e>=m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;m->current_event=e;for(i=0U;i<m->active_atomic_count;++i){leaf=m->active_atomic_states[i];s=leaf;depth=0U;while(s!=ESCX_NO_STATE){sid=FindSelector(m,s,e);if((sid!=ESCX_NO_SELECTOR)&&(sid<m->definition->selector_count)){f=ReadSelector(&m->definition->selectors[sid]);if(f==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;tid=f(m,d);if(tid!=ESCX_NO_TRANSITION){ESCX_BOOL_T keep=ESCX_TRUE;for(j=0U;j<selected_count;++j){if(Conflict(m,tid,selected[j])){if((DepthOfTransition(m,tid)>DepthOfTransition(m,selected[j]))||((DepthOfTransition(m,tid)==DepthOfTransition(m,selected[j]))&&(OrderOfTransition(m,tid)<OrderOfTransition(m,selected[j])))){selected[j]=tid;}keep=ESCX_FALSE;break;}}if(keep!=ESCX_FALSE){if(selected_count>=ESCX_MAX_ENABLED_TRANSITIONS)return ESCX_STATUS_INVALID_ARGUMENT;selected[selected_count++]=tid;}break;}}s=Parent(m,s);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;}}return ExecuteSet(m,selected,selected_count,d);}
-static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine*m){ESCX_BYTE_T i,s,depth;ESCX_UINT16_T sid,tid;ESCX_SelectorFunction f;for(i=0U;i<m->active_atomic_count;++i){s=m->active_atomic_states[i];depth=0U;while(s!=ESCX_NO_STATE){sid=EventlessSelector(m,s);if((sid!=ESCX_NO_SELECTOR)&&(sid<m->definition->selector_count)){f=ReadSelector(&m->definition->selectors[sid]);if(f==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;tid=f(m,(void*)0);if(tid!=ESCX_NO_TRANSITION){m->current_event=ESCX_NO_EVENT;return Execute(m,tid,(void*)0);}}s=Parent(m,s);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;}}return ESCX_STATUS_IGNORED;}
+static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine*m){ESCX_BYTE_T i,s,depth;ESCX_UINT16_T sid,tid;ESCX_SelectorFunction f;for(i=0U;i<m->active_atomic_count;++i){s=m->active_atomic_states[i];depth=0U;while(s!=ESCX_NO_STATE){sid=EventlessSelector(m,s);if((sid!=ESCX_NO_SELECTOR)&&(sid<m->definition->selector_count)){f=ReadSelector(&m->definition->selectors[sid]);if(f==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;tid=f(m,(void*)0);if(tid!=ESCX_NO_TRANSITION){m->current_event=ESCX_NO_EVENT;{ESCX_UINT16_T one[1];one[0]=tid;return ExecuteSet(m,one,1U,(void*)0);}}}s=Parent(m,s);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;}}return ESCX_STATUS_IGNORED;}
 static ESCX_ProcessStatus Stabilize(ESCX_StateMachine*m){ESCX_UINT16_T steps=0U;ESCX_ProcessStatus r;ESCX_QueuedEvent q;for(;;){r=ProcessEventless(m);if(r==ESCX_STATUS_PROCESSED){if(++steps>ESCX_MAX_MICROSTEPS)return ESCX_STATUS_MICROSTEP_LIMIT;continue;}if(r!=ESCX_STATUS_IGNORED)return r;if(ESCX_EventQueuePop(&m->internal_queue,&q)!=ESCX_FALSE){
 #if ESCX_ENABLE_EVENT_DATA
 r=ProcessEvent(m,q.event_id,q.event_data);
