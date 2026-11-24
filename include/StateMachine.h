@@ -92,7 +92,7 @@ typedef struct ESCX_StateMachine {
  ESCX_BYTE_T *active_bits; ESCX_BYTE_T active_byte_count;
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
-   ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
+   ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
  ESCX_HistoryStorage *history;
  const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
    struct ESCX_StateMachine *parent_machine; ESCX_BYTE_T parent_invoke_id;
@@ -125,6 +125,7 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
   ESCX_BYTE_T ESCX_StateMachineGetLastError(const ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineGetLastErrorStatus(const ESCX_StateMachine *);
   void ESCX_StateMachineClearError(ESCX_StateMachine *);
+  ESCX_ProcessStatus ESCX_StateMachineReportError(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
 
 #define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
 #define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize},
