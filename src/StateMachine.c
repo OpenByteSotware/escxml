@@ -52,17 +52,17 @@ static ESCX_ProcessStatus EnterStateTree(ESCX_StateMachine*m,ESCX_BYTE_T s,void*
 static ESCX_ProcessStatus EnterInitial(ESCX_StateMachine*m,ESCX_BYTE_T s,void*d){return EnterStateTree(m,s,d,0U);}
 void ESCX_StateMachineInit(ESCX_StateMachine*m,const ESCX_StateMachineDefinition*d,void*i,ESCX_BYTE_T*b,ESCX_BYTE_T z,ESCX_HistoryStorage*h,ESCX_StartTimerFunction st,ESCX_CancelTimerFunction ct){if((m==(ESCX_StateMachine*)0)||(d==(const ESCX_StateMachineDefinition*)0)||(b==(ESCX_BYTE_T*)0)||(z<ESCX_ACTIVE_BYTES(d->state_count))){ESCX_ASSERT_TRUE(0);return;}m->definition=d;m->instance=i;m->history=h;m->invokes=(const ESCX_InvokeDescriptor*)0;m->invoke_instances=(ESCX_InvokeInstance*)0;m->invoke_count=0U;m->parent_machine=(ESCX_StateMachine*)0;m->parent_invoke_id=ESCX_NO_INVOKE;
 #if ESCX_ENABLE_DELAYED_SENDS
-{ESCX_BYTE_T di;m->current_tick=0UL;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di)m->delayed_sends[di].active=ESCX_FALSE;}
+{ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;}}
 #endif
 m->active_bits=b;m->active_byte_count=z;memset(b,0,z);m->active_atomic_count=0U;m->current_event=ESCX_NO_EVENT;m->error_execution_event=ESCX_NO_EVENT;m->error_communication_event=ESCX_NO_EVENT;m->last_error=ESCX_ERROR_NONE;m->last_error_status=ESCX_STATUS_PROCESSED;m->running=ESCX_FALSE;m->processing=ESCX_FALSE;m->finished=ESCX_FALSE;
 #if ESCX_ENABLE_TIMERS
-m->timer_id=ESCX_INVALID_TIMER_ID;m->start_timer=st;m->cancel_timer=ct;
+m->start_timer=st;m->cancel_timer=ct;m->timer_context=(void*)0;
 #else
 (void)st;(void)ct;
 #endif
 if(h!=(ESCX_HistoryStorage*)0){ESCX_BYTE_T hi;if((h->valid==(ESCX_BYTE_T*)0)||(h->bits==(ESCX_BYTE_T*)0)||(h->bytes_per_slot<z)){ESCX_ASSERT_TRUE(0);return;}for(hi=0U;hi<h->slot_count;++hi)h->valid[hi]=0U;}ESCX_EventQueueInit(&m->internal_queue);ESCX_EventQueueInit(&m->external_queue);
 #if ESCX_ENABLE_DELAYED_SENDS
-{ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di)m->delayed_sends[di].active=ESCX_FALSE;}
+{ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){if((m->delayed_sends[di].active!=ESCX_FALSE)&&(m->cancel_timer!=(ESCX_CancelTimerFunction)0))(void)m->cancel_timer(m,m->delayed_sends[di].timer_id,m->timer_context);m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;}}
 #endif
 }
 static ESCX_ProcessStatus Stabilize(ESCX_StateMachine*m);
@@ -114,20 +114,28 @@ r=Macrostep(m,q.event_id,(void*)0);
 }m->processing=ESCX_FALSE;return r;}
 void ESCX_StateMachineStop(ESCX_StateMachine*m){ESCX_BYTE_T state;if((m==(ESCX_StateMachine*)0)||(m->running==ESCX_FALSE))return;while(m->active_atomic_count!=0U){state=m->active_atomic_states[m->active_atomic_count-1U];CallState(m,state,(void*)0,1);SetActive(m,state,ESCX_FALSE);--m->active_atomic_count;}memset(m->active_bits,0,m->active_byte_count);m->running=ESCX_FALSE;m->processing=ESCX_FALSE;ESCX_EventQueueInit(&m->internal_queue);ESCX_EventQueueInit(&m->external_queue);
 #if ESCX_ENABLE_DELAYED_SENDS
-{ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di)m->delayed_sends[di].active=ESCX_FALSE;}
+{ESCX_BYTE_T di;for(di=0U;di<ESCX_MAX_DELAYED_SENDS;++di){if((m->delayed_sends[di].active!=ESCX_FALSE)&&(m->cancel_timer!=(ESCX_CancelTimerFunction)0))(void)m->cancel_timer(m,m->delayed_sends[di].timer_id,m->timer_context);m->delayed_sends[di].active=ESCX_FALSE;m->delayed_sends[di].timer_id=ESCX_INVALID_TIMER_ID;}}
 #endif
 }
-ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine*m,int id,void*d){
+static ESCX_ProcessStatus DispatchSend(ESCX_StateMachine *,ESCX_BYTE_T,void *,ESCX_BYTE_T,ESCX_BYTE_T);
+ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine*m,ESCX_StartTimerFunction st,ESCX_CancelTimerFunction ct,void*ctx){
 #if ESCX_ENABLE_TIMERS
-if(m==(ESCX_StateMachine*)0){return ESCX_STATUS_INVALID_ARGUMENT;}
-if((m->timer_id==ESCX_INVALID_TIMER_ID)||(id!=m->timer_id)){return ESCX_STATUS_IGNORED;}
-return ESCX_StateMachineSend(m,ESCX_TIMER_EVENT,d);
+if(m==(ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT;
+m->start_timer=st;m->cancel_timer=ct;m->timer_context=ctx;
+return ESCX_STATUS_PROCESSED;
 #else
-(void)m;(void)id;(void)d;return ESCX_STATUS_IGNORED;
+(void)m;(void)st;(void)ct;(void)ctx;return ESCX_STATUS_IGNORED;
 #endif
 }
-
-
+ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine*m,ESCX_TimerId id){
+#if ESCX_ENABLE_TIMERS && ESCX_ENABLE_DELAYED_SENDS
+ESCX_BYTE_T i;ESCX_DelayedSend pending;if(m==(ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT;if(m->running==ESCX_FALSE)return ESCX_STATUS_NOT_RUNNING;if(id==ESCX_INVALID_TIMER_ID)return ESCX_STATUS_IGNORED;
+for(i=0U;i<ESCX_MAX_DELAYED_SENDS;++i)if((m->delayed_sends[i].active!=ESCX_FALSE)&&(m->delayed_sends[i].timer_id==id)){pending=m->delayed_sends[i];m->delayed_sends[i].active=ESCX_FALSE;m->delayed_sends[i].timer_id=ESCX_INVALID_TIMER_ID;return DispatchSend(m,pending.event_id,pending.event_data,pending.target,pending.target_id);}
+return ESCX_STATUS_IGNORED;
+#else
+(void)m;(void)id;return ESCX_STATUS_IGNORED;
+#endif
+}
 ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine *m,ESCX_StateMachine *parent,ESCX_BYTE_T parent_invoke_id)
 {
     if(m==(ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT;
@@ -163,11 +171,10 @@ ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine *m,const ESCX_
     if(request->event_id>=m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;
     if(request->delay_ticks==0UL)return DispatchSend(m,request->event_id,request->event_data,request->target,request->target_id);
 #if ESCX_ENABLE_DELAYED_SENDS
+    if(m->start_timer==(ESCX_StartTimerFunction)0)return ESCX_STATUS_TIMER_START_FAILED;
     for(i=0U;i<ESCX_MAX_DELAYED_SENDS;++i)if(m->delayed_sends[i].active==ESCX_FALSE){
-        m->delayed_sends[i].active=ESCX_TRUE;m->delayed_sends[i].event_id=request->event_id;
-        m->delayed_sends[i].target=request->target;m->delayed_sends[i].target_id=request->target_id;
-        m->delayed_sends[i].send_id=request->send_id;m->delayed_sends[i].due_tick=m->current_tick+request->delay_ticks;
-        m->delayed_sends[i].event_data=request->event_data;return ESCX_STATUS_PROCESSED;
+        ESCX_TimerId id;m->delayed_sends[i].event_id=request->event_id;m->delayed_sends[i].target=request->target;m->delayed_sends[i].target_id=request->target_id;m->delayed_sends[i].send_id=request->send_id;m->delayed_sends[i].event_data=request->event_data;m->delayed_sends[i].timer_id=ESCX_INVALID_TIMER_ID;
+        id=m->start_timer(m,request->delay_ticks,m->timer_context);if(id==ESCX_INVALID_TIMER_ID)return ESCX_STATUS_TIMER_START_FAILED;m->delayed_sends[i].timer_id=id;m->delayed_sends[i].active=ESCX_TRUE;return ESCX_STATUS_PROCESSED;
     }
     return ESCX_STATUS_QUEUE_FULL;
 #else
@@ -179,27 +186,12 @@ ESCX_ProcessStatus ESCX_StateMachineCancelSend(ESCX_StateMachine *m,ESCX_UINT16_
 {
 #if ESCX_ENABLE_DELAYED_SENDS
     ESCX_BYTE_T i;if((m==(ESCX_StateMachine*)0)||(send_id==ESCX_NO_SEND_ID))return ESCX_STATUS_INVALID_ARGUMENT;
-    for(i=0U;i<ESCX_MAX_DELAYED_SENDS;++i)if((m->delayed_sends[i].active!=ESCX_FALSE)&&(m->delayed_sends[i].send_id==send_id)){m->delayed_sends[i].active=ESCX_FALSE;return ESCX_STATUS_PROCESSED;}
+    for(i=0U;i<ESCX_MAX_DELAYED_SENDS;++i)if((m->delayed_sends[i].active!=ESCX_FALSE)&&(m->delayed_sends[i].send_id==send_id)){ESCX_TimerId id=m->delayed_sends[i].timer_id;ESCX_BOOL_T ok=ESCX_TRUE;m->delayed_sends[i].active=ESCX_FALSE;m->delayed_sends[i].timer_id=ESCX_INVALID_TIMER_ID;if(m->cancel_timer!=(ESCX_CancelTimerFunction)0)ok=m->cancel_timer(m,id,m->timer_context);return(ok!=ESCX_FALSE)?ESCX_STATUS_PROCESSED:ESCX_STATUS_TIMER_CANCEL_FAILED;}
     return ESCX_STATUS_SEND_NOT_FOUND;
 #else
     (void)m;(void)send_id;return ESCX_STATUS_SEND_NOT_FOUND;
 #endif
 }
-
-ESCX_ProcessStatus ESCX_StateMachineAdvanceTime(ESCX_StateMachine *m,unsigned long now_tick)
-{
-#if ESCX_ENABLE_DELAYED_SENDS
-    ESCX_BYTE_T i;ESCX_ProcessStatus r;if(m==(ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT;m->current_tick=now_tick;
-    for(i=0U;i<ESCX_MAX_DELAYED_SENDS;++i)if((m->delayed_sends[i].active!=ESCX_FALSE)&&((long)(now_tick-m->delayed_sends[i].due_tick)>=0L)){
-        ESCX_DelayedSend pending=m->delayed_sends[i];m->delayed_sends[i].active=ESCX_FALSE;
-        r=DispatchSend(m,pending.event_id,pending.event_data,pending.target,pending.target_id);if(r!=ESCX_STATUS_PROCESSED)return r;
-    }
-    return ESCX_STATUS_PROCESSED;
-#else
-    (void)m;(void)now_tick;return ESCX_STATUS_PROCESSED;
-#endif
-}
-
 
 ESCX_ProcessStatus ESCX_StateMachineConfigureErrorEvents(ESCX_StateMachine *m,ESCX_BYTE_T execution_event,ESCX_BYTE_T communication_event)
 {
