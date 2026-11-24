@@ -102,6 +102,10 @@ typedef enum ESCX_ErrorCode {
   typedef struct ESCX_ExecutableBlock {
    const ESCX_ExecutableStep *steps; ESCX_UINT16_T step_count;
   } ESCX_ExecutableBlock;
+  typedef enum ESCX_IOProcessorType { ESCX_IO_PROCESSOR_SCXML=0, ESCX_IO_PROCESSOR_INTERNAL=1, ESCX_IO_PROCESSOR_CUSTOM=2 } ESCX_IOProcessorType;
+  typedef enum ESCX_IOTargetType { ESCX_IO_TARGET_CURRENT_SESSION=0, ESCX_IO_TARGET_INTERNAL=1, ESCX_IO_TARGET_PARENT_SESSION=2, ESCX_IO_TARGET_INVOKE=3, ESCX_IO_TARGET_SESSION=4, ESCX_IO_TARGET_CUSTOM=5 } ESCX_IOTargetType;
+  typedef struct ESCX_SendTargetDescriptor { ESCX_BYTE_T processor; ESCX_BYTE_T target_type; ESCX_UINT16_T target_id; } ESCX_SendTargetDescriptor;
+  typedef int (*ESCX_IOProcessorSendFunction)(struct ESCX_StateMachine *,const ESCX_SendTargetDescriptor *,const ESCX_Event *,void *);
   typedef struct ESCX_DelayedSend {
    ESCX_BOOL_T active; ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
    ESCX_UINT16_T send_id; ESCX_TimerId timer_id; ESCX_BYTE_T event_type; ESCX_BYTE_T origin_type; ESCX_BYTE_T invoke_id; void *event_data;
@@ -151,6 +155,7 @@ typedef struct ESCX_StateMachine {
  ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
  ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor;
  ESCX_SystemContext system_context;
+ ESCX_IOProcessorSendFunction io_processor_send; void *io_processor_context;
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
    ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
  ESCX_HistoryStorage *history;
@@ -194,6 +199,8 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine *,ESCX_BYTE
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T,void *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine *,ESCX_StateMachine *,ESCX_BYTE_T);
   ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine *,const ESCX_SendRequest *);
+  ESCX_ProcessStatus ESCX_StateMachineConfigureIOProcessor(ESCX_StateMachine *,ESCX_IOProcessorSendFunction,void *);
+  ESCX_ProcessStatus ESCX_StateMachineSendToTarget(ESCX_StateMachine *,const ESCX_SendTargetDescriptor *,const ESCX_Event *);
   ESCX_ProcessStatus ESCX_StateMachineCancelSend(ESCX_StateMachine *,ESCX_UINT16_T);
   ESCX_ProcessStatus ESCX_StateMachineExecuteContent(ESCX_StateMachine *,const ESCX_ExecutableBlock *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureErrorEvents(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T);
@@ -202,6 +209,12 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
   void ESCX_StateMachineClearError(ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineReportError(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
 
+#define ESCX_SEND_TARGET_SCXML_CURRENT {ESCX_IO_PROCESSOR_SCXML,ESCX_IO_TARGET_CURRENT_SESSION,0U}
+#define ESCX_SEND_TARGET_INTERNAL_QUEUE {ESCX_IO_PROCESSOR_INTERNAL,ESCX_IO_TARGET_INTERNAL,0U}
+#define ESCX_SEND_TARGET_SCXML_PARENT {ESCX_IO_PROCESSOR_SCXML,ESCX_IO_TARGET_PARENT_SESSION,0U}
+#define ESCX_SEND_TARGET_SCXML_INVOKE(id) {ESCX_IO_PROCESSOR_SCXML,ESCX_IO_TARGET_INVOKE,(ESCX_UINT16_T)(id)}
+#define ESCX_SEND_TARGET_SCXML_SESSION(id) {ESCX_IO_PROCESSOR_SCXML,ESCX_IO_TARGET_SESSION,(ESCX_UINT16_T)(id)}
+#define ESCX_SEND_TARGET_CUSTOM(processor_id,target_id) {(ESCX_BYTE_T)(processor_id),ESCX_IO_TARGET_CUSTOM,(ESCX_UINT16_T)(target_id)}
 #define ESCX_EXECUTABLE_STEPS_BEGIN(n) static const ESCX_ExecutableStep n##_executable_steps[] ESCX_ROM={
 #define ESCX_EXECUTABLE_GENERATED_STEP(function,context) {ESCX_EXECUTABLE_GENERATED,function,context,(const ESCX_Event*)0,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID},
 #define ESCX_EXECUTABLE_RAISE_STEP(event_ptr) {ESCX_EXECUTABLE_RAISE,(ESCX_ExecutableFunction)0,(void*)0,event_ptr,(const ESCX_SendRequest*)0,ESCX_NO_SEND_ID},
