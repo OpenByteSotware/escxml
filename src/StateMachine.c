@@ -17,6 +17,20 @@ static ESCX_ActionFunction ReadAction(const ESCX_ActionFunction*p){
  return *p;
 #endif
 }
+static ESCX_StatusActionFunction ReadStatusAction(const ESCX_StatusActionFunction*p){
+#if defined(ESCX_PLATFORM_AVR)&&(ESCX_PLATFORM_AVR!=0)
+ ESCX_StatusActionFunction r;(void)ESCX_ROM_COPY(&r,p,sizeof(r));return r;
+#else
+ return *p;
+#endif
+}
+static ESCX_StatusStateFunction ReadStatusState(const ESCX_StatusStateFunction*p){
+#if defined(ESCX_PLATFORM_AVR)&&(ESCX_PLATFORM_AVR!=0)
+ ESCX_StatusStateFunction r;(void)ESCX_ROM_COPY(&r,p,sizeof(r));return r;
+#else
+ return *p;
+#endif
+}
 static ESCX_SelectorFunction ReadSelector(const ESCX_SelectorFunction*p){
 #if defined(ESCX_PLATFORM_AVR)&&(ESCX_PLATFORM_AVR!=0)
  ESCX_SelectorFunction r;(void)ESCX_ROM_COPY(&r,p,sizeof(r));return r;
@@ -41,16 +55,26 @@ static ESCX_BOOL_T AddAtomic(ESCX_StateMachine*m,ESCX_BYTE_T s){ESCX_BYTE_T i;fo
 static void RemoveAtomic(ESCX_StateMachine*m,ESCX_BYTE_T s){ESCX_BYTE_T i;for(i=0U;i<m->active_atomic_count;++i){if(m->active_atomic_states[i]==s){--m->active_atomic_count;m->active_atomic_states[i]=m->active_atomic_states[m->active_atomic_count];return;}}}
 ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine*m,ESCX_BYTE_T s){if((m==(const ESCX_StateMachine*)0)||(m->running==ESCX_FALSE)||(s==ESCX_NO_STATE))return ESCX_FALSE;return IsActive(m,s);}
 ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine*m){return((m!=(const ESCX_StateMachine*)0)&&(m->finished!=ESCX_FALSE))?ESCX_TRUE:ESCX_FALSE;}
+static ESCX_ProcessStatus ReportErrorInternal(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
 static void ReadInvokeDescriptor(const ESCX_StateMachine*m,ESCX_BYTE_T index,ESCX_InvokeDescriptor*out){(void)ESCX_ROM_COPY(out,&m->invokes[index],sizeof(*out));}
 static ESCX_ProcessStatus StartInvokesForState(ESCX_StateMachine*m,ESCX_BYTE_T state){ESCX_BYTE_T i;ESCX_InvokeDescriptor d;int status;if((m->invokes==(const ESCX_InvokeDescriptor*)0)||(m->invoke_instances==(ESCX_InvokeInstance*)0))return ESCX_STATUS_PROCESSED;for(i=0U;i<m->invoke_count;++i){ReadInvokeDescriptor(m,i,&d);if((d.owner_state==state)&&(m->invoke_instances[i].active==ESCX_FALSE)){if(d.start==(ESCX_InvokeStartFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;status=d.start(m,d.child_storage);if(status!=(int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status;m->invoke_instances[i].active=ESCX_TRUE;}}return ESCX_STATUS_PROCESSED;}
 static void CancelInvokesForState(ESCX_StateMachine*m,ESCX_BYTE_T state){ESCX_BYTE_T i;ESCX_InvokeDescriptor d;if((m->invokes==(const ESCX_InvokeDescriptor*)0)||(m->invoke_instances==(ESCX_InvokeInstance*)0))return;for(i=0U;i<m->invoke_count;++i){ReadInvokeDescriptor(m,i,&d);if((d.owner_state==state)&&(m->invoke_instances[i].active!=ESCX_FALSE)){if(d.cancel!=(ESCX_InvokeCancelFunction)0)d.cancel(m,d.child_storage);m->invoke_instances[i].active=ESCX_FALSE;}}}
-static void CallState(ESCX_StateMachine*m,ESCX_BYTE_T s,void*d,int which){const ESCX_StateDescriptor*x;ESCX_StateFunction f;x=&m->definition->states[s];if(which==1)CancelInvokesForState(m,s);f=(which==0)?ReadStateFn(&x->on_entry):((which==1)?ReadStateFn(&x->on_exit):ReadStateFn(&x->on_state));if(f!=(ESCX_StateFunction)0)f(m,d);if(which==0)(void)StartInvokesForState(m,s);}
+static ESCX_ProcessStatus CallState(ESCX_StateMachine*m,ESCX_BYTE_T s,void*d,int which)
+{
+ const ESCX_StateDescriptor*x;ESCX_StateFunction legacy;ESCX_StatusStateFunction checked;int status;
+ x=&m->definition->states[s];if(which==1)CancelInvokesForState(m,s);
+ checked=(which==0)?ReadStatusState(&x->on_entry_status):((which==1)?ReadStatusState(&x->on_exit_status):ReadStatusState(&x->on_state_status));
+ if(checked!=(ESCX_StatusStateFunction)0){status=checked(m,d);if(status!=(int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m,ESCX_ERROR_EXECUTION,(ESCX_ProcessStatus)status);}
+ else{legacy=(which==0)?ReadStateFn(&x->on_entry):((which==1)?ReadStateFn(&x->on_exit):ReadStateFn(&x->on_state));if(legacy!=(ESCX_StateFunction)0)legacy(m,d);}
+ if(which==0){ESCX_ProcessStatus invoke_status;invoke_status=StartInvokesForState(m,s);if(invoke_status!=ESCX_STATUS_PROCESSED)return ReportErrorInternal(m,ESCX_ERROR_EXECUTION,invoke_status);}
+ return ESCX_STATUS_PROCESSED;
+}
 static ESCX_ProcessStatus NotifyFinalEntered(ESCX_StateMachine*m,ESCX_BYTE_T final_state);
 static ESCX_ProcessStatus RunPlan(ESCX_StateMachine*m,ESCX_UINT16_T pid,void*d,ESCX_BOOL_T entering);
 static ESCX_ProcessStatus RestoreHistory(ESCX_StateMachine*m,ESCX_BYTE_T history_state,void*d);
 static ESCX_UINT16_T FirstChild(const ESCX_StateMachine*m,ESCX_BYTE_T s){return ESCX_ROM_READ_U16(&m->definition->states[s].first_child_index);}
 static ESCX_BYTE_T ChildCount(const ESCX_StateMachine*m,ESCX_BYTE_T s){return StateU8(m,s,OFFSETOF_STATE(child_count));}
-static ESCX_ProcessStatus EnterStateTree(ESCX_StateMachine*m,ESCX_BYTE_T s,void*d,ESCX_BYTE_T depth){ESCX_BYTE_T type,count,child;ESCX_UINT16_T first,i;if(depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;if((s==ESCX_NO_STATE)||((ESCX_UINT16_T)s>=m->definition->state_count))return ESCX_STATUS_INVALID_ARGUMENT;if((Type(m,s)==ESCX_STATE_HISTORY_SHALLOW)||(Type(m,s)==ESCX_STATE_HISTORY_DEEP))return RestoreHistory(m,s,d);if(IsActive(m,s)==ESCX_FALSE){SetActive(m,s,ESCX_TRUE);CallState(m,s,d,0);CallState(m,s,d,2);}type=Type(m,s);if(type==ESCX_STATE_COMPOUND){child=Initial(m,s);return EnterStateTree(m,child,d,(ESCX_BYTE_T)(depth+1U));}if(type==ESCX_STATE_PARALLEL){first=FirstChild(m,s);count=ChildCount(m,s);if((ESCX_UINT16_T)(first+count)>m->definition->child_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){child=ESCX_ROM_READ_U8(&m->definition->children[first+i]);if(EnterStateTree(m,child,d,(ESCX_BYTE_T)(depth+1U))!=ESCX_STATUS_PROCESSED)return ESCX_STATUS_INVALID_ARGUMENT;}return ESCX_STATUS_PROCESSED;}if(AddAtomic(m,s)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_STATE_FINAL)return NotifyFinalEntered(m,s);return ESCX_STATUS_PROCESSED;}
+static ESCX_ProcessStatus EnterStateTree(ESCX_StateMachine*m,ESCX_BYTE_T s,void*d,ESCX_BYTE_T depth){ESCX_BYTE_T type,count,child;ESCX_UINT16_T first,i;if(depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;if((s==ESCX_NO_STATE)||((ESCX_UINT16_T)s>=m->definition->state_count))return ESCX_STATUS_INVALID_ARGUMENT;if((Type(m,s)==ESCX_STATE_HISTORY_SHALLOW)||(Type(m,s)==ESCX_STATE_HISTORY_DEEP))return RestoreHistory(m,s,d);if(IsActive(m,s)==ESCX_FALSE){SetActive(m,s,ESCX_TRUE);{ESCX_ProcessStatus sr;sr=CallState(m,s,d,0);if(sr!=ESCX_STATUS_PROCESSED)return sr;sr=CallState(m,s,d,2);if(sr!=ESCX_STATUS_PROCESSED)return sr;}}type=Type(m,s);if(type==ESCX_STATE_COMPOUND){child=Initial(m,s);return EnterStateTree(m,child,d,(ESCX_BYTE_T)(depth+1U));}if(type==ESCX_STATE_PARALLEL){first=FirstChild(m,s);count=ChildCount(m,s);if((ESCX_UINT16_T)(first+count)>m->definition->child_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){child=ESCX_ROM_READ_U8(&m->definition->children[first+i]);if(EnterStateTree(m,child,d,(ESCX_BYTE_T)(depth+1U))!=ESCX_STATUS_PROCESSED)return ESCX_STATUS_INVALID_ARGUMENT;}return ESCX_STATUS_PROCESSED;}if(AddAtomic(m,s)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_STATE_FINAL)return NotifyFinalEntered(m,s);return ESCX_STATUS_PROCESSED;}
 static ESCX_ProcessStatus EnterInitial(ESCX_StateMachine*m,ESCX_BYTE_T s,void*d){return EnterStateTree(m,s,d,0U);}
 void ESCX_StateMachineInit(ESCX_StateMachine*m,const ESCX_StateMachineDefinition*d,void*i,ESCX_BYTE_T*b,ESCX_BYTE_T z,ESCX_HistoryStorage*h,ESCX_StartTimerFunction st,ESCX_CancelTimerFunction ct){if((m==(ESCX_StateMachine*)0)||(d==(const ESCX_StateMachineDefinition*)0)||(b==(ESCX_BYTE_T*)0)||(z<ESCX_ACTIVE_BYTES(d->state_count))){ESCX_ASSERT_TRUE(0);return;}m->definition=d;m->instance=i;m->history=h;m->invokes=(const ESCX_InvokeDescriptor*)0;m->invoke_instances=(ESCX_InvokeInstance*)0;m->invoke_count=0U;m->parent_machine=(ESCX_StateMachine*)0;m->parent_invoke_id=ESCX_NO_INVOKE;
 #if ESCX_ENABLE_DELAYED_SENDS
@@ -95,14 +119,14 @@ static void HistorySetBit(ESCX_BYTE_T*bits,ESCX_BYTE_T state){bits[state>>3]=(ES
 static ESCX_BOOL_T HistoryHasBit(const ESCX_BYTE_T*bits,ESCX_BYTE_T state){return((bits[state>>3]&(ESCX_BYTE_T)(1U<<(state&7U)))!=0U)?ESCX_TRUE:ESCX_FALSE;}
 static ESCX_ProcessStatus CaptureHistoryState(ESCX_StateMachine*m,ESCX_BYTE_T history_state){ESCX_BYTE_T slot,type,owner,i,state;ESCX_BYTE_T*bits;if(m->history==(ESCX_HistoryStorage*)0)return ESCX_STATUS_INVALID_ARGUMENT;slot=HistorySlot(m,history_state);if(slot>=m->history->slot_count)return ESCX_STATUS_INVALID_ARGUMENT;bits=HistoryBits(m,slot);memset(bits,0,m->history->bytes_per_slot);type=Type(m,history_state);owner=Parent(m,history_state);if(type==ESCX_STATE_HISTORY_SHALLOW){for(i=0U;i<m->active_atomic_count;++i){state=m->active_atomic_states[i];while((state!=ESCX_NO_STATE)&&(Parent(m,state)!=owner))state=Parent(m,state);if(state!=ESCX_NO_STATE)HistorySetBit(bits,state);}}else{for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state)if((IsActive(m,state)!=ESCX_FALSE)&&(IsDescendantOf(m,state,owner)!=ESCX_FALSE))HistorySetBit(bits,state);}m->history->valid[slot]=1U;return ESCX_STATUS_PROCESSED;}
 static ESCX_ProcessStatus CaptureHistoriesForOwner(ESCX_StateMachine*m,ESCX_BYTE_T owner){ESCX_UINT16_T first,i;ESCX_BYTE_T count,child,type;first=FirstChild(m,owner);count=ChildCount(m,owner);if((ESCX_UINT16_T)(first+count)>m->definition->child_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){child=ESCX_ROM_READ_U8(&m->definition->children[first+i]);type=Type(m,child);if((type==ESCX_STATE_HISTORY_SHALLOW)||(type==ESCX_STATE_HISTORY_DEEP)){ESCX_ProcessStatus r;r=CaptureHistoryState(m,child);if(r!=ESCX_STATUS_PROCESSED)return r;}}return ESCX_STATUS_PROCESSED;}
-static ESCX_ProcessStatus RestoreDeep(ESCX_StateMachine*m,ESCX_BYTE_T owner,const ESCX_BYTE_T*bits,void*d){ESCX_BYTE_T depth,state,type;for(depth=1U;depth<=ESCX_MAX_HIERARCHY_DEPTH;++depth){for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state){if((HistoryHasBit(bits,state)!=ESCX_FALSE)&&(IsDescendantOf(m,state,owner)!=ESCX_FALSE)&&(StateU8(m,state,OFFSETOF_STATE(depth))==depth)){if(IsActive(m,state)==ESCX_FALSE){SetActive(m,state,ESCX_TRUE);CallState(m,state,d,0);CallState(m,state,d,2);}type=Type(m,state);if((type==ESCX_STATE_ATOMIC)||(type==ESCX_STATE_FINAL)){if(AddAtomic(m,state)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_STATE_FINAL){ESCX_ProcessStatus r;r=NotifyFinalEntered(m,state);if(r!=ESCX_STATUS_PROCESSED)return r;}}}}}return ESCX_STATUS_PROCESSED;}
+static ESCX_ProcessStatus RestoreDeep(ESCX_StateMachine*m,ESCX_BYTE_T owner,const ESCX_BYTE_T*bits,void*d){ESCX_BYTE_T depth,state,type;for(depth=1U;depth<=ESCX_MAX_HIERARCHY_DEPTH;++depth){for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state){if((HistoryHasBit(bits,state)!=ESCX_FALSE)&&(IsDescendantOf(m,state,owner)!=ESCX_FALSE)&&(StateU8(m,state,OFFSETOF_STATE(depth))==depth)){if(IsActive(m,state)==ESCX_FALSE){SetActive(m,state,ESCX_TRUE);{ESCX_ProcessStatus sr;sr=CallState(m,state,d,0);if(sr!=ESCX_STATUS_PROCESSED)return sr;sr=CallState(m,state,d,2);if(sr!=ESCX_STATUS_PROCESSED)return sr;}}type=Type(m,state);if((type==ESCX_STATE_ATOMIC)||(type==ESCX_STATE_FINAL)){if(AddAtomic(m,state)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_STATE_FINAL){ESCX_ProcessStatus r;r=NotifyFinalEntered(m,state);if(r!=ESCX_STATUS_PROCESSED)return r;}}}}}return ESCX_STATUS_PROCESSED;}
 static ESCX_ProcessStatus RestoreHistory(ESCX_StateMachine*m,ESCX_BYTE_T history_state,void*d){ESCX_BYTE_T slot,owner,state;ESCX_UINT16_T default_plan;ESCX_BYTE_T*bits;if(m->history==(ESCX_HistoryStorage*)0)return ESCX_STATUS_INVALID_ARGUMENT;slot=HistorySlot(m,history_state);if(slot>=m->history->slot_count)return ESCX_STATUS_INVALID_ARGUMENT;default_plan=HistoryDefaultPlan(m,history_state);if(m->history->valid[slot]==0U)return RunPlan(m,default_plan,d,ESCX_TRUE);bits=HistoryBits(m,slot);owner=Parent(m,history_state);if(Type(m,history_state)==ESCX_STATE_HISTORY_SHALLOW){for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state)if(HistoryHasBit(bits,state)!=ESCX_FALSE){ESCX_ProcessStatus r;r=EnterStateTree(m,state,d,0U);if(r!=ESCX_STATUS_PROCESSED)return r;}return ESCX_STATUS_PROCESSED;}return RestoreDeep(m,owner,bits,d);}
 static ESCX_ProcessStatus CaptureHistoriesForExitPlan(ESCX_StateMachine*m,ESCX_UINT16_T pid){const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count,state,type;if(pid==ESCX_NO_PLAN)return ESCX_STATUS_PROCESSED;
  if(pid>=m->definition->plan_count)return ESCX_STATUS_INVALID_ARGUMENT;
 p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);for(i=0U;i<count;++i){state=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);type=Type(m,state);if((type==ESCX_STATE_COMPOUND)||(type==ESCX_STATE_PARALLEL)){ESCX_ProcessStatus r;r=CaptureHistoriesForOwner(m,state);if(r!=ESCX_STATUS_PROCESSED)return r;}}return ESCX_STATUS_PROCESSED;}
 static ESCX_ProcessStatus RunPlan(ESCX_StateMachine*m,ESCX_UINT16_T pid,void*d,ESCX_BOOL_T entering){const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count,s;if(pid==ESCX_NO_PLAN)return ESCX_STATUS_PROCESSED;
  if(pid>=m->definition->plan_count)return ESCX_STATUS_INVALID_ARGUMENT;
-p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);if((ESCX_UINT16_T)(first+count)>m->definition->plan_state_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){s=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);if(entering!=ESCX_FALSE){if((Type(m,s)==ESCX_STATE_HISTORY_SHALLOW)||(Type(m,s)==ESCX_STATE_HISTORY_DEEP)){ESCX_ProcessStatus hr;hr=RestoreHistory(m,s,d);if(hr!=ESCX_STATUS_PROCESSED)return hr;continue;}SetActive(m,s,ESCX_TRUE);CallState(m,s,d,0);CallState(m,s,d,2);if((Type(m,s)==ESCX_STATE_ATOMIC)||(Type(m,s)==ESCX_STATE_FINAL)){if(AddAtomic(m,s)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(Type(m,s)==ESCX_STATE_FINAL){ESCX_ProcessStatus cr;cr=NotifyFinalEntered(m,s);if(cr!=ESCX_STATUS_PROCESSED)return cr;}}}else{CallState(m,s,d,1);SetActive(m,s,ESCX_FALSE);RemoveAtomic(m,s);}}return ESCX_STATUS_PROCESSED;}
+p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);if((ESCX_UINT16_T)(first+count)>m->definition->plan_state_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<count;++i){s=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);if(entering!=ESCX_FALSE){if((Type(m,s)==ESCX_STATE_HISTORY_SHALLOW)||(Type(m,s)==ESCX_STATE_HISTORY_DEEP)){ESCX_ProcessStatus hr;hr=RestoreHistory(m,s,d);if(hr!=ESCX_STATUS_PROCESSED)return hr;continue;}SetActive(m,s,ESCX_TRUE);{ESCX_ProcessStatus sr;sr=CallState(m,s,d,0);if(sr!=ESCX_STATUS_PROCESSED)return sr;sr=CallState(m,s,d,2);if(sr!=ESCX_STATUS_PROCESSED)return sr;}if((Type(m,s)==ESCX_STATE_ATOMIC)||(Type(m,s)==ESCX_STATE_FINAL)){if(AddAtomic(m,s)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(Type(m,s)==ESCX_STATE_FINAL){ESCX_ProcessStatus cr;cr=NotifyFinalEntered(m,s);if(cr!=ESCX_STATUS_PROCESSED)return cr;}}}else{ESCX_ProcessStatus sr;sr=CallState(m,s,d,1);if(sr!=ESCX_STATUS_PROCESSED)return sr;SetActive(m,s,ESCX_FALSE);RemoveAtomic(m,s);}}return ESCX_STATUS_PROCESSED;}
 static ESCX_BOOL_T PlanHasState(const ESCX_StateMachine*m,ESCX_UINT16_T pid,ESCX_BYTE_T state){const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count;if(pid==ESCX_NO_PLAN)return ESCX_FALSE;if(pid>=m->definition->plan_count)return ESCX_FALSE;p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);for(i=0U;i<count;++i)if(ESCX_ROM_READ_U8(&m->definition->plan_states[first+i])==state)return ESCX_TRUE;return ESCX_FALSE;}
 static ESCX_BOOL_T Conflict(const ESCX_StateMachine*m,ESCX_UINT16_T a,ESCX_UINT16_T b){const ESCX_Transition*ta;const ESCX_Transition*tb;ESCX_UINT16_T pa,pb,i;const ESCX_StatePlan*p;ESCX_BYTE_T count,state;if(a==b)return ESCX_TRUE;ta=&m->definition->transitions[a];tb=&m->definition->transitions[b];pa=ESCX_ROM_READ_U16(&ta->exit_plan);pb=ESCX_ROM_READ_U16(&tb->exit_plan);if((pa==ESCX_NO_PLAN)||(pb==ESCX_NO_PLAN))return ESCX_FALSE;p=&m->definition->plans[pa];count=ESCX_ROM_READ_U8(&p->state_count);i=ESCX_ROM_READ_U16(&p->first_state);while(count--!=0U){state=ESCX_ROM_READ_U8(&m->definition->plan_states[i++]);if(PlanHasState(m,pb,state))return ESCX_TRUE;}return ESCX_FALSE;}
 static ESCX_BYTE_T DepthOfTransition(const ESCX_StateMachine*m,ESCX_UINT16_T t){return ESCX_ROM_READ_U8(&m->definition->transitions[t].source_depth);}
@@ -122,12 +146,12 @@ static ESCX_ProcessStatus AddPlanToWorkSet(const ESCX_StateMachine*m,ESCX_UINT16
 }
 static ESCX_ProcessStatus ExitWorkSet(ESCX_StateMachine*m,const ESCX_BYTE_T*bits,void*d)
 {
- ESCX_BYTE_T depth,state,best,best_order;
+ ESCX_BYTE_T depth,state,best,best_order;ESCX_ProcessStatus r;
  for(depth=ESCX_MAX_HIERARCHY_DEPTH;depth!=0U;--depth){
   for(;;){best=ESCX_NO_STATE;best_order=0U;
    for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state)if((WorkSetHas(bits,state)!=ESCX_FALSE)&&(IsActive(m,state)!=ESCX_FALSE)&&(StateDepth(m,state)==depth)){if((best==ESCX_NO_STATE)||(StateOrder(m,state)>best_order)){best=state;best_order=StateOrder(m,state);}}
    if(best==ESCX_NO_STATE)break;
-   CallState(m,best,d,1);SetActive(m,best,ESCX_FALSE);RemoveAtomic(m,best);((ESCX_BYTE_T*)bits)[best>>3]=(ESCX_BYTE_T)(((ESCX_BYTE_T*)bits)[best>>3]&((ESCX_BYTE_T)~(ESCX_BYTE_T)(1U<<(best&7U))));
+   r=CallState(m,best,d,1);if(r!=ESCX_STATUS_PROCESSED)return r;SetActive(m,best,ESCX_FALSE);RemoveAtomic(m,best);((ESCX_BYTE_T*)bits)[best>>3]=(ESCX_BYTE_T)(((ESCX_BYTE_T*)bits)[best>>3]&((ESCX_BYTE_T)~(ESCX_BYTE_T)(1U<<(best&7U))));
   }
  }
  return ESCX_STATUS_PROCESSED;
@@ -141,7 +165,7 @@ static ESCX_ProcessStatus EnterWorkSet(ESCX_StateMachine*m,const ESCX_BYTE_T*bit
    if(best==ESCX_NO_STATE)break;
    ((ESCX_BYTE_T*)bits)[best>>3]=(ESCX_BYTE_T)(((ESCX_BYTE_T*)bits)[best>>3]&((ESCX_BYTE_T)~(ESCX_BYTE_T)(1U<<(best&7U))));type=Type(m,best);
    if((type==ESCX_STATE_HISTORY_SHALLOW)||(type==ESCX_STATE_HISTORY_DEEP)){r=RestoreHistory(m,best,d);if(r!=ESCX_STATUS_PROCESSED)return r;continue;}
-   if(IsActive(m,best)==ESCX_FALSE){SetActive(m,best,ESCX_TRUE);CallState(m,best,d,0);CallState(m,best,d,2);}
+   if(IsActive(m,best)==ESCX_FALSE){SetActive(m,best,ESCX_TRUE);r=CallState(m,best,d,0);if(r!=ESCX_STATUS_PROCESSED)return r;r=CallState(m,best,d,2);if(r!=ESCX_STATUS_PROCESSED)return r;}
    if((type==ESCX_STATE_ATOMIC)||(type==ESCX_STATE_FINAL)){if(AddAtomic(m,best)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_STATE_FINAL){r=NotifyFinalEntered(m,best);if(r!=ESCX_STATUS_PROCESSED)return r;}}
   }
   if(depth==ESCX_MAX_HIERARCHY_DEPTH)break;
@@ -157,7 +181,7 @@ static ESCX_ProcessStatus ExecuteSet(ESCX_StateMachine*m,ESCX_UINT16_T*ids,ESCX_
  WorkSetClear(exit_bits);WorkSetClear(entry_bits);
  for(i=0U;i<count;++i){if(ids[i]>=m->definition->transition_count)return ESCX_STATUS_INVALID_ARGUMENT;t=&m->definition->transitions[ids[i]];type=ESCX_ROM_READ_U8(&t->type);if(type!=ESCX_TRANSITION_TARGETLESS){xp=ESCX_ROM_READ_U16(&t->exit_plan);ep=ESCX_ROM_READ_U16(&t->entry_plan);r=CaptureHistoriesForExitPlan(m,xp);if(r!=ESCX_STATUS_PROCESSED)return r;r=AddPlanToWorkSet(m,xp,exit_bits);if(r!=ESCX_STATUS_PROCESSED)return r;r=AddPlanToWorkSet(m,ep,entry_bits);if(r!=ESCX_STATUS_PROCESSED)return r;}}
  r=ExitWorkSet(m,exit_bits,d);if(r!=ESCX_STATUS_PROCESSED)return r;SortTransitionsByDocumentOrder(m,ids,count);
- for(i=0U;i<count;++i){t=&m->definition->transitions[ids[i]];action=ReadAction(&t->action);if(action!=(ESCX_ActionFunction)0)action(m,d);}
+ for(i=0U;i<count;++i){ESCX_StatusActionFunction checked;int action_status;t=&m->definition->transitions[ids[i]];checked=ReadStatusAction(&t->status_action);if(checked!=(ESCX_StatusActionFunction)0){action_status=checked(m,d);if(action_status!=(int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m,ESCX_ERROR_EXECUTION,(ESCX_ProcessStatus)action_status);}else{action=ReadAction(&t->action);if(action!=(ESCX_ActionFunction)0)action(m,d);}}
  return EnterWorkSet(m,entry_bits,d);
 }
 static ESCX_BOOL_T TransitionPreempts(const ESCX_StateMachine*m,ESCX_UINT16_T candidate,ESCX_UINT16_T existing)
@@ -253,7 +277,7 @@ static void ExitCompleteConfiguration(ESCX_StateMachine*m,void*d)
     }
    }
    if(best==ESCX_NO_STATE)break;
-   CallState(m,best,d,1);SetActive(m,best,ESCX_FALSE);RemoveAtomic(m,best);
+   (void)CallState(m,best,d,1);SetActive(m,best,ESCX_FALSE);RemoveAtomic(m,best);
   }
   if(depth==0U)break;
  }

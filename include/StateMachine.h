@@ -28,6 +28,8 @@ struct ESCX_InvokeDescriptor;
 
 typedef void (*ESCX_ActionFunction)(struct ESCX_StateMachine *, void *);
 typedef void (*ESCX_StateFunction)(struct ESCX_StateMachine *, void *);
+  typedef int (*ESCX_StatusActionFunction)(struct ESCX_StateMachine *, void *);
+  typedef int (*ESCX_StatusStateFunction)(struct ESCX_StateMachine *, void *);
 typedef ESCX_UINT16_T (*ESCX_SelectorFunction)(struct ESCX_StateMachine *, void *);
 typedef ESCX_TimerId (*ESCX_StartTimerFunction)(struct ESCX_StateMachine *, unsigned long, void *);
 typedef ESCX_BOOL_T (*ESCX_CancelTimerFunction)(struct ESCX_StateMachine *, ESCX_TimerId, void *);
@@ -55,12 +57,14 @@ typedef struct ESCX_StateDescriptor {
  ESCX_BYTE_T parent_state; ESCX_UINT16_T first_child_index; ESCX_BYTE_T child_count;
  ESCX_BYTE_T initial_child; ESCX_BYTE_T depth; ESCX_BYTE_T document_order; ESCX_BYTE_T state_type;
  ESCX_UINT16_T eventless_selector; ESCX_BYTE_T done_event; ESCX_BYTE_T history_slot; ESCX_UINT16_T history_default_plan;
+ ESCX_StatusStateFunction on_entry_status; ESCX_StatusStateFunction on_exit_status; ESCX_StatusStateFunction on_state_status;
 } ESCX_StateDescriptor;
 typedef struct ESCX_HistoryStorage { ESCX_BYTE_T *valid; ESCX_BYTE_T *bits; ESCX_BYTE_T slot_count; ESCX_BYTE_T bytes_per_slot; } ESCX_HistoryStorage;
 typedef struct ESCX_StatePlan { ESCX_UINT16_T first_state; ESCX_BYTE_T state_count; } ESCX_StatePlan;
 typedef struct ESCX_Transition {
  ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action;
  ESCX_BYTE_T type; ESCX_BYTE_T source_state; ESCX_BYTE_T source_depth; ESCX_BYTE_T document_order;
+ ESCX_StatusActionFunction status_action;
 } ESCX_Transition;
 typedef enum ESCX_ErrorCode {
    ESCX_ERROR_NONE=0, ESCX_ERROR_EXECUTION=1, ESCX_ERROR_COMMUNICATION=2,
@@ -84,7 +88,8 @@ typedef enum ESCX_ErrorCode {
  ESCX_STATUS_HIERARCHY_LIMIT=6, ESCX_STATUS_MICROSTEP_LIMIT=7,
    ESCX_STATUS_NO_PARENT=8, ESCX_STATUS_INVALID_TARGET=9, ESCX_STATUS_SEND_NOT_FOUND=10,
    ESCX_STATUS_EXECUTION_ERROR=11, ESCX_STATUS_COMMUNICATION_ERROR=12,
- ESCX_STATUS_TIMER_START_FAILED=13, ESCX_STATUS_TIMER_CANCEL_FAILED=14
+ ESCX_STATUS_TIMER_START_FAILED=13, ESCX_STATUS_TIMER_CANCEL_FAILED=14,
+   ESCX_STATUS_CALLBACK_FAILED=15
 } ESCX_ProcessStatus;
 typedef struct ESCX_InvokeDescriptor {
  ESCX_BYTE_T owner_state; ESCX_BYTE_T done_event; ESCX_BOOL_T autoforward;
