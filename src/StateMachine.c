@@ -148,7 +148,46 @@ static ESCX_ProcessStatus ExecuteSet(ESCX_StateMachine*m,ESCX_UINT16_T*ids,ESCX_
  for(i=0U;i<count;++i){t=&m->definition->transitions[ids[i]];action=ReadAction(&t->action);if(action!=(ESCX_ActionFunction)0)action(m,d);}
  return EnterWorkSet(m,entry_bits,d);
 }
-static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine*m,ESCX_BYTE_T e,void*d){ESCX_UINT16_T selected[ESCX_MAX_ENABLED_TRANSITIONS];ESCX_BYTE_T selected_count=0U,leaf,s,depth,i,j;ESCX_UINT16_T sid,tid;ESCX_SelectorFunction f;if(e>=m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;m->current_event=e;for(i=0U;i<m->active_atomic_count;++i){leaf=m->active_atomic_states[i];s=leaf;depth=0U;while(s!=ESCX_NO_STATE){sid=FindSelector(m,s,e);if((sid!=ESCX_NO_SELECTOR)&&(sid<m->definition->selector_count)){f=ReadSelector(&m->definition->selectors[sid]);if(f==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;tid=f(m,d);if(tid!=ESCX_NO_TRANSITION){ESCX_BOOL_T keep=ESCX_TRUE;for(j=0U;j<selected_count;++j){if(Conflict(m,tid,selected[j])){if((DepthOfTransition(m,tid)>DepthOfTransition(m,selected[j]))||((DepthOfTransition(m,tid)==DepthOfTransition(m,selected[j]))&&(OrderOfTransition(m,tid)<OrderOfTransition(m,selected[j])))){selected[j]=tid;}keep=ESCX_FALSE;break;}}if(keep!=ESCX_FALSE){if(selected_count>=ESCX_MAX_ENABLED_TRANSITIONS)return ESCX_STATUS_INVALID_ARGUMENT;selected[selected_count++]=tid;}break;}}s=Parent(m,s);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;}}return ExecuteSet(m,selected,selected_count,d);}
+static ESCX_BOOL_T TransitionPreempts(const ESCX_StateMachine*m,ESCX_UINT16_T candidate,ESCX_UINT16_T existing)
+{
+ ESCX_BYTE_T candidate_depth,existing_depth;
+ candidate_depth=DepthOfTransition(m,candidate);existing_depth=DepthOfTransition(m,existing);
+ if(candidate_depth>existing_depth)return ESCX_TRUE;
+ if(candidate_depth<existing_depth)return ESCX_FALSE;
+ return(OrderOfTransition(m,candidate)<OrderOfTransition(m,existing))?ESCX_TRUE:ESCX_FALSE;
+}
+static ESCX_ProcessStatus AddEnabledTransition(const ESCX_StateMachine*m,ESCX_UINT16_T*selected,ESCX_BYTE_T*count,ESCX_UINT16_T candidate)
+{
+ ESCX_BYTE_T i,write;ESCX_BOOL_T rejected;
+ for(i=0U;i<*count;++i)if(selected[i]==candidate)return ESCX_STATUS_PROCESSED;
+ rejected=ESCX_FALSE;
+ for(i=0U;i<*count;++i){
+  if((Conflict(m,candidate,selected[i])!=ESCX_FALSE)&&(TransitionPreempts(m,candidate,selected[i])==ESCX_FALSE)){rejected=ESCX_TRUE;break;}
+ }
+ if(rejected!=ESCX_FALSE)return ESCX_STATUS_PROCESSED;
+ write=0U;
+ for(i=0U;i<*count;++i){
+  if((Conflict(m,candidate,selected[i])!=ESCX_FALSE)&&(TransitionPreempts(m,candidate,selected[i])!=ESCX_FALSE))continue;
+  selected[write++]=selected[i];
+ }
+ if(write>=ESCX_MAX_ENABLED_TRANSITIONS)return ESCX_STATUS_INVALID_ARGUMENT;
+ selected[write++]=candidate;*count=write;return ESCX_STATUS_PROCESSED;
+}
+static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine*m,ESCX_BYTE_T e,void*d)
+{
+ ESCX_UINT16_T selected[ESCX_MAX_ENABLED_TRANSITIONS];ESCX_BYTE_T selected_count=0U,leaf,state,depth,i;
+ ESCX_UINT16_T selector_id,transition_id;ESCX_SelectorFunction selector;ESCX_ProcessStatus status;
+ if(e>=m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;
+ m->current_event=e;
+ for(i=0U;i<m->active_atomic_count;++i){leaf=m->active_atomic_states[i];state=leaf;depth=0U;
+  while(state!=ESCX_NO_STATE){selector_id=FindSelector(m,state,e);
+   if((selector_id!=ESCX_NO_SELECTOR)&&(selector_id<m->definition->selector_count)){selector=ReadSelector(&m->definition->selectors[selector_id]);if(selector==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;transition_id=selector(m,d);
+    if(transition_id!=ESCX_NO_TRANSITION){status=AddEnabledTransition(m,selected,&selected_count,transition_id);if(status!=ESCX_STATUS_PROCESSED)return status;break;}}
+   state=Parent(m,state);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;
+  }
+ }
+ return ExecuteSet(m,selected,selected_count,d);
+}
 static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine*m){ESCX_BYTE_T i,s,depth;ESCX_UINT16_T sid,tid;ESCX_SelectorFunction f;for(i=0U;i<m->active_atomic_count;++i){s=m->active_atomic_states[i];depth=0U;while(s!=ESCX_NO_STATE){sid=EventlessSelector(m,s);if((sid!=ESCX_NO_SELECTOR)&&(sid<m->definition->selector_count)){f=ReadSelector(&m->definition->selectors[sid]);if(f==(ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;tid=f(m,(void*)0);if(tid!=ESCX_NO_TRANSITION){m->current_event=ESCX_NO_EVENT;{ESCX_UINT16_T one[1];one[0]=tid;return ExecuteSet(m,one,1U,(void*)0);}}}s=Parent(m,s);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)return ESCX_STATUS_HIERARCHY_LIMIT;}}return ESCX_STATUS_IGNORED;}
 static ESCX_ProcessStatus Stabilize(ESCX_StateMachine*m){ESCX_UINT16_T steps=0U;ESCX_ProcessStatus r;ESCX_QueuedEvent q;for(;;){r=ProcessEventless(m);if(r==ESCX_STATUS_PROCESSED){if(++steps>ESCX_MAX_MICROSTEPS)return ESCX_STATUS_MICROSTEP_LIMIT;continue;}if(r!=ESCX_STATUS_IGNORED)return r;if(ESCX_EventQueuePop(&m->internal_queue,&q)!=ESCX_FALSE){
 #if ESCX_ENABLE_EVENT_DATA
