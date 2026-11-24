@@ -25,6 +25,7 @@ typedef signed long ESCX_TimerId;
 
 struct ESCX_StateMachine;
 struct ESCX_InvokeDescriptor;
+  struct ESCX_Event;
 
 typedef void (*ESCX_ActionFunction)(struct ESCX_StateMachine *, void *);
 typedef void (*ESCX_StateFunction)(struct ESCX_StateMachine *, void *);
@@ -38,6 +39,7 @@ typedef int (*ESCX_InvokeStartFunction)(struct ESCX_StateMachine *, void *);
   typedef int (*ESCX_InvokeInitializeFunction)(struct ESCX_StateMachine *, void *, ESCX_BYTE_T);
 typedef void (*ESCX_InvokeCancelFunction)(struct ESCX_StateMachine *, void *);
 typedef int (*ESCX_InvokeForwardFunction)(struct ESCX_StateMachine *, void *, ESCX_BYTE_T, void *);
+  typedef int (*ESCX_InvokeForwardEventFunction)(struct ESCX_StateMachine *,void *,const struct ESCX_Event *);
 typedef void (*ESCX_InvokeFinalizeFunction)(struct ESCX_StateMachine *, void *, ESCX_BYTE_T, void *);
   struct ESCX_Event;
   typedef int (*ESCX_InvokeFinalizeStatusFunction)(struct ESCX_StateMachine *, void *, const struct ESCX_Event *);
@@ -131,7 +133,7 @@ typedef struct ESCX_InvokeDescriptor {
  ESCX_BYTE_T owner_state; ESCX_BYTE_T done_event; ESCX_BOOL_T autoforward;
  void *child_storage; ESCX_InvokeStartFunction start; ESCX_InvokeCancelFunction cancel;
  ESCX_InvokeForwardFunction forward; ESCX_InvokeFinalizeFunction finalize; ESCX_DoneDataFunction done_data;
- ESCX_InvokeFinalizeStatusFunction finalize_status; ESCX_InvokeInitializeFunction initialize;
+ ESCX_InvokeFinalizeStatusFunction finalize_status; ESCX_InvokeInitializeFunction initialize; ESCX_InvokeForwardEventFunction forward_event;
 } ESCX_InvokeDescriptor;
 typedef struct ESCX_InvokeInstance { ESCX_BOOL_T active; } ESCX_InvokeInstance;
 typedef struct ESCX_StateMachineDefinition {
@@ -205,6 +207,7 @@ ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine *);
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine *,const ESCX_InvokeDescriptor *,ESCX_InvokeInstance *,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine *,ESCX_BYTE_T,void *);
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T,void *);
+  ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine *,ESCX_BYTE_T,const ESCX_Event *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine *,ESCX_StateMachine *,ESCX_BYTE_T);
   ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine *,const ESCX_SendRequest *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureIOProcessor(ESCX_StateMachine *,ESCX_IOProcessorSendFunction,void *);
@@ -233,10 +236,11 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
 #define ESCX_EXECUTABLE_STEPS_END() };
 #define ESCX_DEFINE_EXECUTABLE_BLOCK(n) static const ESCX_ExecutableBlock n##_executable_block={n##_executable_steps,(ESCX_UINT16_T)(sizeof(n##_executable_steps)/sizeof(n##_executable_steps[0]))}
 #define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
-#define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,(ESCX_DoneDataFunction)0,(ESCX_InvokeFinalizeStatusFunction)0,(ESCX_InvokeInitializeFunction)0},
-  #define ESCX_INVOKE_DONE_DATA(owner,done_event,autoforward,storage,start,cancel,forward,finalize,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,done_data,(ESCX_InvokeFinalizeStatusFunction)0,(ESCX_InvokeInitializeFunction)0},
-#define ESCX_INVOKE_STATUS(owner,done_event,autoforward,storage,start,cancel,forward,finalize_status,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,(ESCX_InvokeFinalizeFunction)0,done_data,finalize_status,(ESCX_InvokeInitializeFunction)0},
-#define ESCX_INVOKE_INITIALIZED(owner,done_event,autoforward,storage,initialize,start,cancel,forward,finalize_status,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,(ESCX_InvokeFinalizeFunction)0,done_data,finalize_status,initialize},
+#define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,(ESCX_DoneDataFunction)0,(ESCX_InvokeFinalizeStatusFunction)0,(ESCX_InvokeInitializeFunction)0,(ESCX_InvokeForwardEventFunction)0},
+  #define ESCX_INVOKE_DONE_DATA(owner,done_event,autoforward,storage,start,cancel,forward,finalize,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,done_data,(ESCX_InvokeFinalizeStatusFunction)0,(ESCX_InvokeInitializeFunction)0,(ESCX_InvokeForwardEventFunction)0},
+#define ESCX_INVOKE_STATUS(owner,done_event,autoforward,storage,start,cancel,forward,finalize_status,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,(ESCX_InvokeFinalizeFunction)0,done_data,finalize_status,(ESCX_InvokeInitializeFunction)0,(ESCX_InvokeForwardEventFunction)0},
+#define ESCX_INVOKE_INITIALIZED(owner,done_event,autoforward,storage,initialize,start,cancel,forward,finalize_status,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,(ESCX_InvokeFinalizeFunction)0,done_data,finalize_status,initialize,(ESCX_InvokeForwardEventFunction)0},
+#define ESCX_INVOKE_EVENT_FORWARD(owner,done_event,autoforward,storage,initialize,start,cancel,forward_event,finalize_status,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,(ESCX_InvokeForwardFunction)0,(ESCX_InvokeFinalizeFunction)0,done_data,finalize_status,initialize,forward_event},
 #define ESCX_INVOKES_END() };
 #define ESCX_STATE_ENUM_BEGIN(n) typedef enum n##_StateId { n##_NO_STATE=0,
 #define ESCX_STATE_ENUM(v) v,
