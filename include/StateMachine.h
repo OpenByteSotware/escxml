@@ -30,6 +30,7 @@ typedef void (*ESCX_ActionFunction)(struct ESCX_StateMachine *, void *);
 typedef void (*ESCX_StateFunction)(struct ESCX_StateMachine *, void *);
   typedef int (*ESCX_StatusActionFunction)(struct ESCX_StateMachine *, void *);
   typedef int (*ESCX_StatusStateFunction)(struct ESCX_StateMachine *, void *);
+  typedef int (*ESCX_DoneDataFunction)(struct ESCX_StateMachine *, void **);
 typedef ESCX_UINT16_T (*ESCX_SelectorFunction)(struct ESCX_StateMachine *, void *);
 typedef ESCX_TimerId (*ESCX_StartTimerFunction)(struct ESCX_StateMachine *, unsigned long, void *);
 typedef ESCX_BOOL_T (*ESCX_CancelTimerFunction)(struct ESCX_StateMachine *, ESCX_TimerId, void *);
@@ -59,7 +60,7 @@ typedef struct ESCX_StateDescriptor {
  ESCX_BYTE_T initial_child; ESCX_BYTE_T depth; ESCX_BYTE_T document_order; ESCX_BYTE_T state_type;
  ESCX_UINT16_T eventless_selector; ESCX_BYTE_T done_event; ESCX_BYTE_T history_slot; ESCX_UINT16_T history_default_plan;
  ESCX_StatusStateFunction on_entry_status; ESCX_StatusStateFunction on_exit_status; ESCX_StatusStateFunction on_state_status;
- ESCX_StatusStateFunction data_init_status;
+ ESCX_StatusStateFunction data_init_status; ESCX_DoneDataFunction done_data;
 } ESCX_StateDescriptor;
 typedef struct ESCX_HistoryStorage { ESCX_BYTE_T *valid; ESCX_BYTE_T *bits; ESCX_BYTE_T slot_count; ESCX_BYTE_T bytes_per_slot; } ESCX_HistoryStorage;
 typedef struct ESCX_StatePlan { ESCX_UINT16_T first_state; ESCX_BYTE_T state_count; } ESCX_StatePlan;
@@ -96,7 +97,7 @@ typedef enum ESCX_ErrorCode {
 typedef struct ESCX_InvokeDescriptor {
  ESCX_BYTE_T owner_state; ESCX_BYTE_T done_event; ESCX_BOOL_T autoforward;
  void *child_storage; ESCX_InvokeStartFunction start; ESCX_InvokeCancelFunction cancel;
- ESCX_InvokeForwardFunction forward; ESCX_InvokeFinalizeFunction finalize;
+ ESCX_InvokeForwardFunction forward; ESCX_InvokeFinalizeFunction finalize; ESCX_DoneDataFunction done_data;
 } ESCX_InvokeDescriptor;
 typedef struct ESCX_InvokeInstance { ESCX_BOOL_T active; } ESCX_InvokeInstance;
 typedef struct ESCX_StateMachineDefinition {
@@ -156,7 +157,8 @@ ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_
   ESCX_ProcessStatus ESCX_StateMachineReportError(ESCX_StateMachine *,ESCX_ErrorCode,ESCX_ProcessStatus);
 
 #define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
-#define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize},
+#define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,(ESCX_DoneDataFunction)0},
+  #define ESCX_INVOKE_DONE_DATA(owner,done_event,autoforward,storage,start,cancel,forward,finalize,done_data) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize,done_data},
 #define ESCX_INVOKES_END() };
 #define ESCX_STATE_ENUM_BEGIN(n) typedef enum n##_StateId { n##_NO_STATE=0,
 #define ESCX_STATE_ENUM(v) v,
