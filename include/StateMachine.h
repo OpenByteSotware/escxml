@@ -50,7 +50,8 @@ typedef struct ESCX_Event {
  ESCX_BYTE_T name_id; ESCX_BYTE_T type; ESCX_BYTE_T origin_type;
  ESCX_BYTE_T invoke_id; ESCX_UINT16_T send_id; void *data;
 } ESCX_Event;
-typedef enum ESCX_StateType { ESCX_STATE_ATOMIC=0, ESCX_STATE_COMPOUND=1, ESCX_STATE_PARALLEL=2, ESCX_STATE_FINAL=3, ESCX_STATE_HISTORY_SHALLOW=4, ESCX_STATE_HISTORY_DEEP=5 } ESCX_StateType;
+typedef enum ESCX_DataBinding { ESCX_DATA_BINDING_EARLY=0, ESCX_DATA_BINDING_LATE=1 } ESCX_DataBinding;
+  typedef enum ESCX_StateType { ESCX_STATE_ATOMIC=0, ESCX_STATE_COMPOUND=1, ESCX_STATE_PARALLEL=2, ESCX_STATE_FINAL=3, ESCX_STATE_HISTORY_SHALLOW=4, ESCX_STATE_HISTORY_DEEP=5 } ESCX_StateType;
 typedef enum ESCX_TransitionType { ESCX_TRANSITION_EXTERNAL=0, ESCX_TRANSITION_INTERNAL=1, ESCX_TRANSITION_TARGETLESS=2 } ESCX_TransitionType;
 typedef struct ESCX_StateDescriptor {
  ESCX_StateFunction on_entry; ESCX_StateFunction on_exit; ESCX_StateFunction on_state;
@@ -58,6 +59,7 @@ typedef struct ESCX_StateDescriptor {
  ESCX_BYTE_T initial_child; ESCX_BYTE_T depth; ESCX_BYTE_T document_order; ESCX_BYTE_T state_type;
  ESCX_UINT16_T eventless_selector; ESCX_BYTE_T done_event; ESCX_BYTE_T history_slot; ESCX_UINT16_T history_default_plan;
  ESCX_StatusStateFunction on_entry_status; ESCX_StatusStateFunction on_exit_status; ESCX_StatusStateFunction on_state_status;
+ ESCX_StatusStateFunction data_init_status;
 } ESCX_StateDescriptor;
 typedef struct ESCX_HistoryStorage { ESCX_BYTE_T *valid; ESCX_BYTE_T *bits; ESCX_BYTE_T slot_count; ESCX_BYTE_T bytes_per_slot; } ESCX_HistoryStorage;
 typedef struct ESCX_StatePlan { ESCX_UINT16_T first_state; ESCX_BYTE_T state_count; } ESCX_StatePlan;
@@ -113,6 +115,7 @@ typedef struct ESCX_StateMachine {
    const ESCX_BYTE_T *event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
    ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
  ESCX_HistoryStorage *history;
+   ESCX_BYTE_T data_binding; ESCX_BYTE_T *data_initialized_bits; ESCX_BYTE_T data_initialized_byte_count;
  const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
    struct ESCX_StateMachine *parent_machine; ESCX_BYTE_T parent_invoke_id;
 #if ESCX_ENABLE_DELAYED_SENDS
@@ -134,6 +137,8 @@ ESCX_ProcessStatus ESCX_StateMachineRaiseInternal(ESCX_StateMachine *,ESCX_BYTE_
   ESCX_ProcessStatus ESCX_StateMachineRaiseEvent(ESCX_StateMachine *,const ESCX_Event *);
   const ESCX_Event *ESCX_StateMachineGetCurrentEvent(const ESCX_StateMachine *);
   ESCX_ProcessStatus ESCX_StateMachineConfigureEventMatching(ESCX_StateMachine *,const ESCX_BYTE_T *,ESCX_BYTE_T,ESCX_BYTE_T);
+  ESCX_ProcessStatus ESCX_StateMachineConfigureDataBinding(ESCX_StateMachine *,ESCX_DataBinding,ESCX_BYTE_T *,ESCX_BYTE_T);
+  ESCX_BOOL_T ESCX_StateMachineIsDataInitialized(const ESCX_StateMachine *,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,ESCX_TimerId);
 ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine *,ESCX_StartTimerFunction,ESCX_CancelTimerFunction,void *);
 ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine *,ESCX_BYTE_T);
