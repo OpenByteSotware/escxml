@@ -13,7 +13,7 @@ namespace
 	}ESCX_UINT16_T Select(ESCX_StateMachine*, void*)
 	{
 		return 0;
-	}const ESCX_StateDescriptor st[2] = { { 0 },{ 0,0,0,0,0,0,0,0,0,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN } }; const ESCX_BYTE_T ch[1] = { 0 }; const ESCX_StatePlan pl[1] = { { 0,0 } }; const ESCX_BYTE_T ps[1] = { 0 }; const ESCX_Transition tr[1] = { { ESCX_NO_PLAN,ESCX_NO_PLAN,Observe,ESCX_TRANSITION_TARGETLESS,1,0,0 } }; const ESCX_SelectorFunction se[1] = { Select }; const ESCX_UINT16_T ba[2] = { 0,0 }; const ESCX_BYTE_T ow[4] = { 0,0,1,0 }; const ESCX_UINT16_T sl[4] = { ESCX_NO_SELECTOR,ESCX_NO_SELECTOR,0,ESCX_NO_SELECTOR }; const ESCX_StateMachineDefinition df = { st,ch,tr,pl,ps,se,ba,ow,sl,2,1,1,1,1,1,4,1,4 };
+	}const ESCX_StateDescriptor st[2] = { { 0 },{ 0,0,0,0,0,0,0,0,0,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN } }; const ESCX_BYTE_T ch[1] = { 0 }; const ESCX_StatePlan pl[1] = { { 0,0 } }; const ESCX_BYTE_T ps[1] = { 0 }; const ESCX_Transition tr[1] = { { ESCX_NO_PLAN,ESCX_NO_PLAN,Observe,ESCX_TRANSITION_TARGETLESS,1,0,0 } }; const ESCX_SelectorFunction se[1] = { Select }; const ESCX_UINT16_T ba[2] = { 0,0 }; const ESCX_BYTE_T ow[4] = { 0,0,0,1 }; const ESCX_UINT16_T sl[4] = { ESCX_NO_SELECTOR,ESCX_NO_SELECTOR,ESCX_NO_SELECTOR,0 }; const ESCX_StateMachineDefinition df = { st,ch,tr,pl,ps,se,ba,ow,sl,2,1,1,1,1,1,4,1,4 };
 }
 TEST(ErrorEventContext, DeliversPlatformEventWithStructuredData)
 {
