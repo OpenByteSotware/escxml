@@ -80,3 +80,8 @@ A valid event whose macrostep completes returns `ESCX_STATUS_PROCESSED`, whether
 ### Stage 40: error-event hardening
 
 A queued platform error owns a stable structured payload and keeps the recursion latch set until that exact event has been consumed. Additional failures while an error is pending update diagnostics without overwriting or recursively enqueueing the pending platform event. Queue-full delivery leaves the latch clear so a later report can retry.
+
+
+### Stage 41: startup rollback and failure cleanup
+
+Startup is now transactional from the runtime's perspective. Failures during early data initialization, initial entry, eventless stabilization, queued internal-event processing, or deferred invoke startup exit every state that was successfully entered, cancel active invokes and delayed sends, clear queues and pending invoke work, and return the machine to a stopped, restartable state. Parallel child-entry failures preserve their original status instead of being collapsed to `ESCX_STATUS_INVALID_ARGUMENT`.
