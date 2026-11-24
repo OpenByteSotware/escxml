@@ -17,6 +17,8 @@ extern "C" {
 #define ESCX_NO_PLAN ESCX_INVALID_INDEX
 #define ESCX_INVALID_TIMER_ID (-1)
 #define ESCX_NO_HISTORY_SLOT ((ESCX_BYTE_T)255U)
+#define ESCX_NO_INVOKE ((ESCX_BYTE_T)255U)
+#define ESCX_NO_SEND_ID ((ESCX_UINT16_T)0U)
 #define ESCX_ACTIVE_BYTES(count) (((count) + 7U) / 8U)
 
 struct ESCX_StateMachine;
@@ -46,10 +48,23 @@ typedef struct ESCX_Transition {
  ESCX_UINT16_T exit_plan; ESCX_UINT16_T entry_plan; ESCX_ActionFunction action;
  ESCX_BYTE_T type; ESCX_BYTE_T source_state; ESCX_BYTE_T source_depth; ESCX_BYTE_T document_order;
 } ESCX_Transition;
-typedef enum ESCX_ProcessStatus {
+typedef enum ESCX_SendTarget {
+   ESCX_SEND_TARGET_SELF=0, ESCX_SEND_TARGET_INTERNAL=1,
+   ESCX_SEND_TARGET_PARENT=2, ESCX_SEND_TARGET_INVOKE=3
+  } ESCX_SendTarget;
+  typedef struct ESCX_SendRequest {
+   ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
+   ESCX_UINT16_T send_id; unsigned long delay_ticks; void *event_data;
+  } ESCX_SendRequest;
+  typedef struct ESCX_DelayedSend {
+   ESCX_BOOL_T active; ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
+   ESCX_UINT16_T send_id; unsigned long due_tick; void *event_data;
+  } ESCX_DelayedSend;
+  typedef enum ESCX_ProcessStatus {
  ESCX_STATUS_IGNORED=0, ESCX_STATUS_PROCESSED=1, ESCX_STATUS_INVALID_EVENT=2,
  ESCX_STATUS_NOT_RUNNING=3, ESCX_STATUS_QUEUE_FULL=4, ESCX_STATUS_INVALID_ARGUMENT=5,
- ESCX_STATUS_HIERARCHY_LIMIT=6, ESCX_STATUS_MICROSTEP_LIMIT=7
+ ESCX_STATUS_HIERARCHY_LIMIT=6, ESCX_STATUS_MICROSTEP_LIMIT=7,
+   ESCX_STATUS_NO_PARENT=8, ESCX_STATUS_INVALID_TARGET=9, ESCX_STATUS_SEND_NOT_FOUND=10
 } ESCX_ProcessStatus;
 typedef struct ESCX_InvokeDescriptor {
  ESCX_BYTE_T owner_state; ESCX_BYTE_T done_event; ESCX_BOOL_T autoforward;
@@ -72,6 +87,10 @@ typedef struct ESCX_StateMachine {
  ESCX_BYTE_T current_event; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished;
  ESCX_HistoryStorage *history;
  const ESCX_InvokeDescriptor *invokes; ESCX_InvokeInstance *invoke_instances; ESCX_BYTE_T invoke_count;
+   struct ESCX_StateMachine *parent_machine; ESCX_BYTE_T parent_invoke_id;
+#if ESCX_ENABLE_DELAYED_SENDS
+   ESCX_DelayedSend delayed_sends[ESCX_MAX_DELAYED_SENDS]; unsigned long current_tick;
+#endif
 #if ESCX_ENABLE_TIMERS
  int timer_id; ESCX_StartTimerFunction start_timer; ESCX_CancelTimerFunction cancel_timer;
 #endif
@@ -90,6 +109,10 @@ ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine *);
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine *,const ESCX_InvokeDescriptor *,ESCX_InvokeInstance *,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine *,ESCX_BYTE_T,void *);
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine *,ESCX_BYTE_T,ESCX_BYTE_T,void *);
+  ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine *,ESCX_StateMachine *,ESCX_BYTE_T);
+  ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine *,const ESCX_SendRequest *);
+  ESCX_ProcessStatus ESCX_StateMachineCancelSend(ESCX_StateMachine *,ESCX_UINT16_T);
+  ESCX_ProcessStatus ESCX_StateMachineAdvanceTime(ESCX_StateMachine *,unsigned long);
 
 #define ESCX_INVOKES_BEGIN(n) static const ESCX_InvokeDescriptor n##_invokes[] ESCX_ROM = {
 #define ESCX_INVOKE(owner,done_event,autoforward,storage,start,cancel,forward,finalize) {(ESCX_BYTE_T)(owner),(ESCX_BYTE_T)(done_event),(ESCX_BOOL_T)(autoforward),storage,start,cancel,forward,finalize},

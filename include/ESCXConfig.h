@@ -92,6 +92,20 @@
 #if (ESCX_MAX_INVOKES < 1U) || (ESCX_MAX_INVOKES > 254U)
 #error ESCX_MAX_INVOKES must be between 1 and 254
 #endif
+
+#ifndef ESCX_ENABLE_DELAYED_SENDS
+#define ESCX_ENABLE_DELAYED_SENDS 1
+#endif
+#ifndef ESCX_MAX_DELAYED_SENDS
+#define ESCX_MAX_DELAYED_SENDS 8U
+#endif
+#if (ESCX_ENABLE_DELAYED_SENDS != 0) && (ESCX_ENABLE_DELAYED_SENDS != 1)
+#error ESCX_ENABLE_DELAYED_SENDS must be 0 or 1
+#endif
+#if (ESCX_MAX_DELAYED_SENDS < 1U) || (ESCX_MAX_DELAYED_SENDS > 254U)
+#error ESCX_MAX_DELAYED_SENDS must be between 1 and 254
+#endif
+
 #define ESCX_JOIN_INNER(a, b) a##b
 #define ESCX_JOIN(a, b) ESCX_JOIN_INNER(a, b)
 #define ESCX_COMPILE_ASSERT_N(expression, suffix) \
