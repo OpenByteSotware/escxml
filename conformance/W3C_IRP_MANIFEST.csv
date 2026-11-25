@@ -1,0 +1,44 @@
+assertion_id,test_id,spec_section,requirement,conformance,test_type,responsibility,disposition,evidence,next_stage
+355,test355,3.2,default initial state is first child,mandatory,automatic,generator+runtime,MAPPED,stage24_legacy_initial_child_regression_test.cpp,IRP import
+576,test576,3.2,root initial attribute configuration,mandatory,automatic,generator+runtime,MAPPED,stage24_initial_entry_plan_test.cpp,IRP import
+364,test364,3.3,compound default initial configuration,mandatory,automatic,generator+runtime,MAPPED,stage22_initial_transition_content_test.cpp,IRP import
+372,test372,3.7,done.state after final onentry,mandatory,automatic,runtime,MAPPED,stage18_donedata_test.cpp,completion corpus
+570,test570,3.7,parallel done.state propagation,mandatory,automatic,runtime,MAPPED,stage19_completion_latch_test.cpp,completion corpus
+387,test387,3.10,unvisited history uses default configuration,mandatory,automatic,runtime,MAPPED,stage35_ordered_history_map_test.cpp,history corpus
+579,test579,3.10,history default executable ordering,mandatory,automatic,runtime,MAPPED,stage42_history_validation_test.cpp,history corpus
+580,test580,3.10,history pseudo-state never active,mandatory,automatic,runtime,MAPPED,stage42_history_validation_test.cpp,history corpus
+388,test388,3.10,visited history restores stored configuration,mandatory,automatic,runtime,MAPPED,stage42_history_validation_test.cpp,history corpus
+396,test396,3.12,event name used for transition matching,mandatory,automatic,generator+runtime,MAPPED,stage14_event_matching_test.cpp,IRP import
+399,test399,3.12,event descriptor exact and prefix matching,mandatory,automatic,generator+runtime,MAPPED,stage14_event_matching_test.cpp,IRP import
+401,test401,3.12,error events use internal queue,mandatory,automatic,runtime,MAPPED,stage34_error_event_context_test.cpp,error corpus
+402,test402,3.12,error events processed normally,mandatory,automatic,runtime,MAPPED,stage40_error_event_hardening_test.cpp,error corpus
+403,test403a|test403b|test403c,3.13,optimal enabled transition set,mandatory,automatic,runtime,MAPPED,stage12_conflict_resolution_test.cpp|stage47_conflict_map_semantic_validation_test.cpp|stage48_preemption_validation_test.cpp,IRP import
+404,test404,3.13,exit all states before transition content,mandatory,automatic,runtime,MAPPED,stage11_global_microstep_test.cpp,IRP import
+405,test405,3.13,transition content in document order,mandatory,automatic,runtime,MAPPED,stage11_global_microstep_test.cpp,IRP import
+406,test406,3.13,entry set after transition content,mandatory,automatic,runtime,MAPPED,stage11_global_microstep_test.cpp,IRP import
+411,test411,3.13,activate state before onentry,mandatory,automatic,runtime,MAPPED,stage24_initial_entry_plan_test.cpp,IRP import
+412,test412,3.13,initial transition content after parent onentry,mandatory,automatic,runtime,MAPPED,stage22_initial_transition_content_test.cpp,IRP import
+415,test415,3.13,top-level final halts processing,mandatory,manual,runtime,MANUAL,stage25_interpreter_termination_test.cpp,manual disposition
+419,test419,3.13,eventless optimal transition set first,mandatory,automatic,runtime,MAPPED,stage23_global_eventless_test.cpp,IRP import
+421,test421,3.13,drain internal events after eventless stability,mandatory,automatic,runtime,MAPPED,stage28_executable_content_test.cpp,queue corpus
+422,test422,3.13,start invokes after stable macrostep,mandatory,automatic,runtime,MAPPED,stage36_invoke_ownership_test.cpp,invoke corpus
+423,test423,3.13,process external events after invoke startup,mandatory,automatic,runtime,MAPPED,stage36_invoke_ownership_test.cpp,queue corpus
+503,test503,3.13,targetless transition has empty exit set,mandatory,automatic,runtime,MAPPED,stage46_transition_domain_validation_test.cpp,IRP import
+504,test504,3.13,external transition LCCA domain,mandatory,automatic,generator+runtime,GAP,stage46_transition_domain_validation_test.cpp,exact target metadata
+505,test505,3.13,legal internal transition source domain,mandatory,automatic,generator+runtime,MAPPED,stage46_transition_domain_validation_test.cpp,exact target metadata
+506,test506,3.13,invalid internal transition treated as external,mandatory,automatic,generator+runtime,GAP,none,transition normalization
+533,test533,3.13,internal transition from non-compound treated as external,mandatory,automatic,generator+runtime,GAP,none,transition normalization
+144,test144,4.2,raise appends to internal queue,mandatory,automatic,runtime,MAPPED,stage28_executable_content_test.cpp,IRP import
+158,test158,4.9,executable content document order,mandatory,automatic,runtime,MAPPED,stage28_executable_content_test.cpp,IRP import
+159,test159,4.9,error stops remaining executable block,mandatory,automatic,runtime,MAPPED,stage28_executable_content_test.cpp,IRP import
+279,test279,5.3,early binding initializes at document initialization,mandatory,automatic,generator+runtime,MAPPED,stage17_datamodel_binding_test.cpp,IRP import
+280,test280,5.3,late binding initializes before first onentry,mandatory,automatic,generator+runtime,MAPPED,stage17_datamodel_binding_test.cpp,IRP import
+294,test294,5.5,done event carries donedata,mandatory,automatic,generator+runtime,MAPPED,stage18_donedata_test.cpp,completion corpus
+310,test310,5.9,In predicate reports active state,mandatory,automatic,runtime,MAPPED,StateMachineIsInState,IRP import
+318,test318,5.10,event variable bound while event processed,mandatory,automatic,runtime,MAPPED,stage13_event_descriptor_test.cpp|stage37_current_event_scoping_test.cpp,IRP import
+319,test319,5.10,event variable unbound at initialization,mandatory,automatic,runtime,MAPPED,stage37_current_event_scoping_test.cpp,IRP import
+321,test321,5.10,session id bound at load time,mandatory,automatic,generator+runtime,MAPPED,stage29_system_context_test.cpp,IRP import
+323,test323,5.10,machine name bound at load time,mandatory,automatic,generator+runtime,MAPPED,stage29_system_context_test.cpp,IRP import
+325,test325,5.10,ioprocessors system variable,mandatory,automatic,platform+runtime,MAPPED,stage29_system_context_test.cpp,IRP import
+329,test329,5.10,system variables immutable,mandatory,automatic,runtime,MAPPED,stage29_system_context_test.cpp,IRP import
+330,test330,5.10,event fields always present,mandatory,automatic,runtime,MAPPED,stage13_event_descriptor_test.cpp|stage32_invoke_event_metadata_test.cpp,IRP import

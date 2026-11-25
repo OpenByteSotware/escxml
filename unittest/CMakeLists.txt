@@ -50,6 +50,11 @@ target_compile_features(
     PRIVATE
         cxx_std_17
 )
+target_compile_definitions(
+    escxml_unit_tests
+    PRIVATE
+        ESCX_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
 
 if(MSVC)
     target_compile_options(

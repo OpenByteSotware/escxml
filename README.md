@@ -127,3 +127,8 @@ Transition conflict resolution now uses the W3C SCXML source-ancestry rule rathe
 ######### Stage 49: exact fast-dispatch validation
 
 `ESCX_StateMachineConfigureFastDispatch()` now requires exact equality between every authoritative generated fast event lookup and the effective hierarchical selector obtained from the baseline state/event tables. A generated entry is rejected both when a required selector is missing and when a spurious selector is present where hierarchical SCXML event matching finds no transition selector. Event-prefix, wildcard and ancestor-state flattening remain covered by the same comparison; eventless mappings were already exact and remain unchanged. Configuration-time validation may scan states, events and bounded ancestry, while normal event dispatch remains one row-displacement ROM lookup per active atomic state with no fallback scan or heap use.
+
+
+########## Stage 50: W3C IRP manifest and exact disposition gate
+
+The repository now includes `conformance/W3C_IRP_MANIFEST.csv` as a machine-readable mapping from official W3C SCXML assertion/test IDs to ESCXML responsibility, disposition, evidence and next action. `MAPPED` is intentionally distinct from `PASS`: a similar local regression test is not an official W3C pass until the W3C machine is imported and reaches its success verdict. A GoogleTest gate validates schema, unique assertion IDs, allowed dispositions and explicit follow-up for every gap. The initial core manifest identifies exact transition-domain gaps for assertions 504, 506 and 533, making future runtime work test-driven instead of speculative. No event-processing path changes in this stage.
