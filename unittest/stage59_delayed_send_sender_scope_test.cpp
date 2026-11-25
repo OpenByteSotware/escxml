@@ -101,7 +101,7 @@ TEST(DelayedSendSenderScope, CustomTransportDoesNotBindSenderCurrentEvent)
     EXPECT_EQ(&payload,data.transported.data);
     ExpectNeutral(machine);
 }
-TEST(DelayedSendSenderScope, CurrentSessionDeliveryBindsOnlyDuringMacrostepThenReturnsNeutral)
+TEST(DelayedSendSenderScope, CurrentSessionDeliveryRemainsBoundAfterMacrostep)
 {
     ESCX_StateMachine machine = {};
     ESCX_BYTE_T active[1] = {};
@@ -124,7 +124,12 @@ TEST(DelayedSendSenderScope, CurrentSessionDeliveryBindsOnlyDuringMacrostepThenR
     EXPECT_EQ(ESCX_EVENT_ORIGIN_SCXML,data.action_event.origin_type);
     EXPECT_EQ(92,data.action_event.send_id);
     EXPECT_EQ(&payload,data.action_event.data);
-    ExpectNeutral(machine);
+    const ESCX_Event* current = ESCX_StateMachineGetCurrentEvent(&machine);
+    ASSERT_NE(nullptr,current);
+    EXPECT_EQ(1,current->name_id);
+    EXPECT_EQ(ESCX_EVENT_ORIGIN_SCXML,current->origin_type);
+    EXPECT_EQ(92,current->send_id);
+    EXPECT_EQ(&payload,current->data);
 }
 TEST(DelayedSendSenderScope, ExpiryDuringMacrostepPreservesInterruptedEvent)
 {

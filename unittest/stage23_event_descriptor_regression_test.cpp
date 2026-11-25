@@ -31,7 +31,7 @@ namespace
 	const ESCX_UINT16_T slots[2] = { ESCX_NO_SELECTOR,0 };
 	const ESCX_StateMachineDefinition def = { states,children,transitions,plans,plan_states,selectors,bases,owners,slots,2,1,1,1,1,2,2,1,2 };
 }
-TEST(EventlessDescriptorRegression, StabilizationClearsDrivingExternalEventFromCurrentScope)
+TEST(EventlessDescriptorRegression, StabilizationRetainsDrivingExternalEventInCurrentScope)
 {
 	ESCX_StateMachine m = {}; ESCX_BYTE_T bits[1] = {}; 
 	Data data = { { ESCX_NO_EVENT,0,0,ESCX_NO_INVOKE,0,0 },0 }; int payload = 42;
@@ -48,8 +48,9 @@ TEST(EventlessDescriptorRegression, StabilizationClearsDrivingExternalEventFromC
 	EXPECT_EQ(&payload, data.seen.data);
 	const ESCX_Event* current = ESCX_StateMachineGetCurrentEvent(&m); 
 	ASSERT_NE(nullptr, current);
-	EXPECT_EQ(ESCX_NO_EVENT, current->name_id);
-	EXPECT_EQ(ESCX_EVENT_ORIGIN_NONE, current->origin_type);
-	EXPECT_EQ(ESCX_NO_SEND_ID, current->send_id);
-	EXPECT_EQ(nullptr, current->data);
+	EXPECT_EQ(1, current->name_id);
+	EXPECT_EQ(ESCX_EVENT_TYPE_EXTERNAL, current->type);
+	EXPECT_EQ(ESCX_EVENT_ORIGIN_PLATFORM, current->origin_type);
+	EXPECT_EQ(77, current->send_id);
+	EXPECT_EQ(&payload, current->data);
 }

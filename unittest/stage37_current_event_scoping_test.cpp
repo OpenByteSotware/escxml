@@ -24,7 +24,7 @@ namespace
 	const ESCX_SelectorFunction selectors[1] = { SelectEventless }; const ESCX_UINT16_T bases[2] = { 0 }; const ESCX_BYTE_T owners[1] = { 0 }; const ESCX_UINT16_T slots[1] = { ESCX_NO_SELECTOR };
 	const ESCX_StateMachineDefinition def = { states,children,transitions,plans,plan_states,selectors,bases,owners,slots,2,1,1,1,1,1,1,1,2 };
 }
-TEST(CurrentEventScoping, EventlessSelectorAndActionSeeNeutralEvent)
+TEST(CurrentEventScoping, StartupEventlessSelectorAndActionSeeNeutralEvent)
 {
 	ESCX_StateMachine m = {}; ESCX_BYTE_T bits[1] = {}; Data data = {};
 	ESCX_StateMachineInit(&m, &def, &data, bits, 1, 0, 0, 0);
@@ -64,6 +64,7 @@ TEST(CurrentEventScoping, ErrorDuringEventlessUsesDrivingEventAsStructuredTrigge
 	ESCX_Event driving = { 1,ESCX_EVENT_TYPE_EXTERNAL,ESCX_EVENT_ORIGIN_PLATFORM,ESCX_NO_INVOKE,72,&payload };
 	ESCX_StateMachineInit(&m, &driven_def, &data, bits, 1, 0, 0, 0); ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&m));
 	EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineSendEvent(&m, &driving));
-	EXPECT_EQ(ESCX_NO_EVENT, data.eventless_seen.name_id); EXPECT_EQ(ESCX_EVENT_ORIGIN_NONE, data.eventless_seen.origin_type);
+	EXPECT_EQ(1, data.eventless_seen.name_id); EXPECT_EQ(ESCX_EVENT_ORIGIN_PLATFORM, data.eventless_seen.origin_type);
+	EXPECT_EQ(72, data.eventless_seen.send_id); EXPECT_EQ(&payload, data.eventless_seen.data);
 	EXPECT_EQ(1, data.trigger_seen.name_id); EXPECT_EQ(72, data.trigger_seen.send_id); EXPECT_EQ(&payload, data.trigger_seen.data);
 }

@@ -592,12 +592,12 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureExitOrder(ESCX_StateMachine* m, con
 }
 static ESCX_ProcessStatus ExecuteInvokeFinalizeEvent(ESCX_StateMachine* m, const ESCX_InvokeDescriptor* d, const ESCX_Event* event)
 {
-	ESCX_InvokeFinalizeStatusFunction checked; int status;
-	SetCurrentEvent(m, event);
+	ESCX_InvokeFinalizeStatusFunction checked; ESCX_Event saved_event; ESCX_BYTE_T saved_event_id; int status;
+	saved_event = m->current_event_descriptor; saved_event_id = m->current_event; SetCurrentEvent(m, event);
 	checked = ReadInvokeFinalizeStatus(&d->finalize_status); if (checked != (ESCX_InvokeFinalizeStatusFunction)0) {
-		status = checked(m, d->child_storage, event); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status);
+		status = checked(m, d->child_storage, event); m->current_event_descriptor = saved_event; m->current_event = saved_event_id; if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status);
 	}
-	else if (d->finalize != (ESCX_InvokeFinalizeFunction)0)d->finalize(m, d->child_storage, event->name_id, event->data);
+	else { if (d->finalize != (ESCX_InvokeFinalizeFunction)0)d->finalize(m, d->child_storage, event->name_id, event->data); m->current_event_descriptor = saved_event; m->current_event = saved_event_id; }
 	return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, const ESCX_Event* event)
@@ -619,23 +619,14 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ES
 	if ((payload == (void*)0) && (done_data != (ESCX_DoneDataFunction)0)) {
 		status = done_data(m, &payload); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status); done.data = payload;
 	}
-	fs = ExecuteInvokeFinalizeEvent(m, &d, &done); if (fs != ESCX_STATUS_PROCESSED) {
-		SetNeutralCurrentEvent(m); return fs;
-	}
-	if (done.name_id == ESCX_NO_EVENT) {
-		SetNeutralCurrentEvent(m); return ESCX_STATUS_PROCESSED;
-	}
-	if (done.name_id >= m->definition->event_count) {
-		SetNeutralCurrentEvent(m); return ESCX_STATUS_INVALID_EVENT;
-	}
-	if (ESCX_EventQueuePushEx(&m->internal_queue, done.name_id, done.type, done.origin_type, done.invoke_id, done.send_id, done.data) == ESCX_FALSE) {
-		SetNeutralCurrentEvent(m); return ESCX_STATUS_QUEUE_FULL;
-	}
+	fs = ExecuteInvokeFinalizeEvent(m, &d, &done); if (fs != ESCX_STATUS_PROCESSED)return fs;
+	if (done.name_id == ESCX_NO_EVENT)return ESCX_STATUS_PROCESSED;
+	if (done.name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;
+	if (ESCX_EventQueuePushEx(&m->internal_queue, done.name_id, done.type, done.origin_type, done.invoke_id, done.send_id, done.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL;
 	if (m->processing == ESCX_FALSE) {
 		ESCX_ProcessStatus result; m->processing = ESCX_TRUE; result = Stabilize(m); m->processing = ESCX_FALSE; if ((result == ESCX_STATUS_PROCESSED) && (m->finish_pending != ESCX_FALSE))FinishInterpreter(m); return result;
 	}
-	/* Finalize ran synchronously, but the queued done.invoke event will be consumed later. */
-	SetNeutralCurrentEvent(m);
+	/* Finalize scope was restored; the queued done.invoke event is consumed later. */
 	return ESCX_STATUS_PROCESSED;
 }
 
@@ -646,13 +637,9 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine* m, ESCX_BY
 
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, const ESCX_Event* event)
 {
-	ESCX_InvokeDescriptor d; ESCX_ProcessStatus fs; ESCX_Event normalized; if ((m == (ESCX_StateMachine*)0) || (event == (const ESCX_Event*)0) || (invoke_id >= m->invoke_count) || (m->invoke_instances[invoke_id].active == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (event->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT; normalized = *event; normalized.origin_type = ESCX_EVENT_ORIGIN_INVOKE; normalized.invoke_id = invoke_id; ReadInvokeDescriptor(m, invoke_id, &d); fs = ExecuteInvokeFinalizeEvent(m, &d, &normalized); if (fs != ESCX_STATUS_PROCESSED) {
-		SetNeutralCurrentEvent(m); return fs;
-	} if (ESCX_EventQueuePushEx(&m->internal_queue, normalized.name_id, normalized.type, normalized.origin_type, normalized.invoke_id, normalized.send_id, normalized.data) == ESCX_FALSE) {
-		SetNeutralCurrentEvent(m); return ESCX_STATUS_QUEUE_FULL;
-	} if (m->processing == ESCX_FALSE) {
+	ESCX_InvokeDescriptor d; ESCX_ProcessStatus fs; ESCX_Event normalized; if ((m == (ESCX_StateMachine*)0) || (event == (const ESCX_Event*)0) || (invoke_id >= m->invoke_count) || (m->invoke_instances[invoke_id].active == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (event->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT; normalized = *event; normalized.origin_type = ESCX_EVENT_ORIGIN_INVOKE; normalized.invoke_id = invoke_id; ReadInvokeDescriptor(m, invoke_id, &d); fs = ExecuteInvokeFinalizeEvent(m, &d, &normalized); if (fs != ESCX_STATUS_PROCESSED)return fs; if (ESCX_EventQueuePushEx(&m->internal_queue, normalized.name_id, normalized.type, normalized.origin_type, normalized.invoke_id, normalized.send_id, normalized.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL; if (m->processing == ESCX_FALSE) {
 		ESCX_ProcessStatus result; m->processing = ESCX_TRUE; result = Stabilize(m); m->processing = ESCX_FALSE; if ((result == ESCX_STATUS_PROCESSED) && (m->finish_pending != ESCX_FALSE))FinishInterpreter(m); return result;
-	}SetNeutralCurrentEvent(m); return ESCX_STATUS_PROCESSED;
+	}return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, ESCX_BYTE_T event_id, void* data)
 {
@@ -1078,7 +1065,7 @@ static ESCX_UINT16_T FindEffectiveEventlessSelector(const ESCX_StateMachine* m, 
 static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine* m)
 {
 	ESCX_UINT16_T selected[ESCX_MAX_ENABLED_TRANSITIONS]; ESCX_BYTE_T selected_count, i, leaf; ESCX_UINT16_T selector_id, transition_id; ESCX_SelectorFunction selector; ESCX_ProcessStatus status;
-	selected_count = 0U; SetNeutralCurrentEvent(m);
+	selected_count = 0U;
 	for (i = 0U; i < m->active_atomic_count; ++i) {
 		leaf = m->active_atomic_states[i]; selector_id = FindEffectiveEventlessSelector(m, leaf);
 		if (selector_id == ESCX_NO_SELECTOR)continue;

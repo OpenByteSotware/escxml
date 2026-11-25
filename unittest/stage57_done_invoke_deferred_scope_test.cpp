@@ -47,12 +47,15 @@ namespace
 		ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(m));
 	}
 }
-TEST(DoneInvokeDeferredScope, CompletionDuringMacrostepQueuesDescriptorAndRestoresNeutralEvent)
+TEST(DoneInvokeDeferredScope, CompletionDuringMacrostepQueuesDescriptorAndRestoresPriorEvent)
 {
 	ESCX_StateMachine m = {}; ESCX_BYTE_T active[1] = {}; ESCX_InvokeInstance instance[1] = {};
 	Data data = {}; int payload = 17;
 	ESCX_Event done = { 1,ESCX_EVENT_TYPE_INTERNAL,ESCX_EVENT_ORIGIN_SCXML,9,66,&payload };
 	Init(&m, active, instance, &data); m.processing = ESCX_TRUE;
+	int prior_payload = 23;
+	m.current_event_descriptor = ESCX_Event{ 1,ESCX_EVENT_TYPE_EXTERNAL,ESCX_EVENT_ORIGIN_PLATFORM,ESCX_NO_INVOKE,44,&prior_payload };
+	m.current_event = 1;
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineCompleteInvokeEvent(&m, 0, &done));
 	EXPECT_FALSE(instance[0].active); ASSERT_EQ(1, data.finalizes); 
 	EXPECT_EQ(0, data.transitions); ASSERT_EQ(1, m.internal_queue.count);
@@ -62,10 +65,11 @@ TEST(DoneInvokeDeferredScope, CompletionDuringMacrostepQueuesDescriptorAndRestor
 	EXPECT_EQ(&payload, data.finalized.data);
 	const ESCX_Event* current = ESCX_StateMachineGetCurrentEvent(&m); 
 	ASSERT_NE(nullptr, current);
-	EXPECT_EQ(ESCX_NO_EVENT, current->name_id);
-	EXPECT_EQ(ESCX_EVENT_ORIGIN_NONE, current->origin_type);
-	EXPECT_EQ(ESCX_NO_INVOKE, current->invoke_id); 
-	EXPECT_EQ(nullptr, current->data);
+	EXPECT_EQ(1, current->name_id);
+	EXPECT_EQ(ESCX_EVENT_ORIGIN_PLATFORM, current->origin_type);
+	EXPECT_EQ(ESCX_NO_INVOKE, current->invoke_id);
+	EXPECT_EQ(44, current->send_id);
+	EXPECT_EQ(&prior_payload, current->data);
 	m.processing = ESCX_FALSE;
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineSend(&m, 1, 0));
 	ASSERT_EQ(2, data.transitions);

@@ -64,7 +64,7 @@ TEST(InvokeFinalizeScope, QueueFullFailureDoesNotLeakFinalizeEvent)
 	ASSERT_NE(nullptr, current);
 	EXPECT_EQ(ESCX_NO_EVENT, current->name_id); EXPECT_EQ(ESCX_EVENT_ORIGIN_NONE, current->origin_type);
 }
-TEST(InvokeFinalizeScope, EventQueuedDuringExistingMacrostepRestoresNeutralScope)
+TEST(InvokeFinalizeScope, EventQueuedDuringExistingMacrostepRestoresPriorScope)
 {
 	ESCX_StateMachine m = {}; ESCX_BYTE_T active[1] = {}; ESCX_InvokeInstance instance[1] = {}; Data data = {}; int payload = 7;
 	Init(&m, active, instance, &data, 1); m.processing = ESCX_TRUE;
