@@ -444,6 +444,26 @@ static ESCX_BOOL_T EntryPlanContainsState(const ESCX_StateMachine* m, ESCX_UINT1
 {
 	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i)if (ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]) == required)return ESCX_TRUE; return ESCX_FALSE;
 }
+static ESCX_BOOL_T EntryPlanContainsDescendantOf(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T ancestor)
+{
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) { state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if ((state != ancestor) && (IsDescendantOf(m, state, ancestor) != ESCX_FALSE))return ESCX_TRUE; } return ESCX_FALSE;
+}
+static ESCX_BOOL_T EntryPlanContainsPlan(const ESCX_StateMachine* m, ESCX_UINT16_T outer_pid, ESCX_UINT16_T required_pid)
+{
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state; if ((required_pid == ESCX_NO_PLAN) || (required_pid >= m->definition->plan_count))return ESCX_FALSE; p = &m->definition->plans[required_pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); if (count == 0U)return ESCX_FALSE; for (i = 0U; i < count; ++i) { state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if (EntryPlanContainsState(m, outer_pid, state) == ESCX_FALSE)return ESCX_FALSE; } return ESCX_TRUE;
+}
+static ESCX_BOOL_T EntryPlanStateClosure(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T state, ESCX_BYTE_T depth)
+{
+	ESCX_BYTE_T type, count, child, represented, selected; ESCX_UINT16_T first, i, initial_plan; if (depth > ESCX_MAX_HIERARCHY_DEPTH)return ESCX_FALSE; type = Type(m, state); if ((type == ESCX_STATE_ATOMIC) || (type == ESCX_STATE_FINAL) || (type == ESCX_STATE_HISTORY_SHALLOW) || (type == ESCX_STATE_HISTORY_DEEP))return ESCX_TRUE; first = FirstChild(m, state); count = ChildCount(m, state); if ((count == 0U) || ((ESCX_UINT16_T)(first + count) > m->definition->child_count))return ESCX_FALSE;
+	if (type == ESCX_STATE_PARALLEL) { for (i = 0U; i < count; ++i) { child = ESCX_ROM_READ_U8(&m->definition->children[first + i]); if ((Type(m, child) == ESCX_STATE_HISTORY_SHALLOW) || (Type(m, child) == ESCX_STATE_HISTORY_DEEP))continue; if (EntryPlanContainsState(m, pid, child) == ESCX_FALSE)return ESCX_FALSE; if (EntryPlanStateClosure(m, pid, child, (ESCX_BYTE_T)(depth + 1U)) == ESCX_FALSE)return ESCX_FALSE; } return ESCX_TRUE; }
+	if (type != ESCX_STATE_COMPOUND)return ESCX_FALSE; represented = 0U; selected = ESCX_NO_STATE; for (i = 0U; i < count; ++i) { child = ESCX_ROM_READ_U8(&m->definition->children[first + i]); if ((Type(m, child) == ESCX_STATE_HISTORY_SHALLOW) || (Type(m, child) == ESCX_STATE_HISTORY_DEEP))continue; if ((EntryPlanContainsState(m, pid, child) != ESCX_FALSE) || (EntryPlanContainsDescendantOf(m, pid, child) != ESCX_FALSE)) { selected = child; ++represented; } }
+	if (represented > 1U)return ESCX_FALSE; if (represented == 1U) { if (EntryPlanContainsState(m, pid, selected) == ESCX_FALSE)return ESCX_FALSE; return EntryPlanStateClosure(m, pid, selected, (ESCX_BYTE_T)(depth + 1U)); }
+	initial_plan = InitialEntryPlan(m, state); if (initial_plan != ESCX_NO_PLAN)return EntryPlanContainsPlan(m, pid, initial_plan); child = Initial(m, state); if ((child == ESCX_NO_STATE) || (EntryPlanContainsState(m, pid, child) == ESCX_FALSE))return ESCX_FALSE; return EntryPlanStateClosure(m, pid, child, (ESCX_BYTE_T)(depth + 1U));
+}
+static ESCX_BOOL_T EntryPlanHasCompleteConfiguration(const ESCX_StateMachine* m, ESCX_UINT16_T pid)
+{
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state, type; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) { state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); type = Type(m, state); if (((type == ESCX_STATE_COMPOUND) || (type == ESCX_STATE_PARALLEL)) && (EntryPlanStateClosure(m, pid, state, 0U) == ESCX_FALSE))return ESCX_FALSE; } return ESCX_TRUE;
+}
 static ESCX_BOOL_T EntryPlanMatchesTargets(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T domain, const ESCX_TransitionDomainMap* map, const ESCX_TransitionDomainDescriptor* d)
 {
 	const ESCX_StatePlan* p; ESCX_UINT16_T first, i, j; ESCX_BYTE_T count, state, target, depth; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) {
@@ -469,7 +489,7 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureTransitionDomainMap(ESCX_StateMachi
 					expected_type = ESCX_TRANSITION_EXTERNAL; break;
 				}
 			}
-		}expected_domain = (expected_type == ESCX_TRANSITION_INTERNAL) ? source : LeastCommonCompoundAncestor(m, source, map, &d); if ((d.effective_type != expected_type) || (d.domain_state != expected_domain) || (expected_domain == ESCX_NO_STATE))return ESCX_STATUS_INVALID_ARGUMENT; if (ExitPlanMatchesDomain(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].exit_plan), expected_domain) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT; if (EntryPlanMatchesTargets(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].entry_plan), expected_domain, map, &d) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
+		}expected_domain = (expected_type == ESCX_TRANSITION_INTERNAL) ? source : LeastCommonCompoundAncestor(m, source, map, &d); if ((d.effective_type != expected_type) || (d.domain_state != expected_domain) || (expected_domain == ESCX_NO_STATE))return ESCX_STATUS_INVALID_ARGUMENT; if (ExitPlanMatchesDomain(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].exit_plan), expected_domain) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT; if (EntryPlanMatchesTargets(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].entry_plan), expected_domain, map, &d) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT; if (EntryPlanHasCompleteConfiguration(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].entry_plan)) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
 	}m->transition_domain_map = map; return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineValidateTransitionDomains(const ESCX_StateMachine* m)
