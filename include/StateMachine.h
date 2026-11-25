@@ -230,12 +230,22 @@ extern "C" {
 	{
 		const ESCX_BYTE_T* bits; ESCX_UINT16_T transition_count; ESCX_UINT16_T bytes_per_row;
 	} ESCX_PreemptionMap;
+	typedef struct ESCX_TransitionDomainDescriptor
+	{
+		ESCX_BYTE_T domain_state; ESCX_BYTE_T effective_type;
+		ESCX_UINT16_T first_target; ESCX_BYTE_T target_count;
+	} ESCX_TransitionDomainDescriptor;
+	typedef struct ESCX_TransitionDomainMap
+	{
+		const ESCX_TransitionDomainDescriptor* transitions; const ESCX_BYTE_T* targets;
+		ESCX_UINT16_T transition_count; ESCX_UINT16_T target_count;
+	} ESCX_TransitionDomainMap;
 	typedef struct ESCX_StateMachine
 	{
 		const ESCX_StateMachineDefinition* definition; void* instance;
 		ESCX_BYTE_T* active_bits; ESCX_BYTE_T active_byte_count;
 		ESCX_BYTE_T* completion_bits; ESCX_BYTE_T completion_byte_count;
-		const ESCX_FastDispatch* fast_dispatch; const ESCX_ConflictMap* conflict_map; const ESCX_PreemptionMap* preemption_map; ESCX_MicrostepWorkspace* workspace;
+		const ESCX_FastDispatch* fast_dispatch; const ESCX_ConflictMap* conflict_map; const ESCX_PreemptionMap* preemption_map; const ESCX_TransitionDomainMap* transition_domain_map; ESCX_MicrostepWorkspace* workspace;
 		ESCX_BYTE_T active_atomic_states[ESCX_MAX_ACTIVE_ATOMIC_STATES]; ESCX_BYTE_T active_atomic_count;
 		ESCX_BYTE_T current_event; ESCX_Event current_event_descriptor; ESCX_Event triggering_event_descriptor; ESCX_BOOL_T has_triggering_event;
 		ESCX_SystemContext system_context;
@@ -276,6 +286,7 @@ extern "C" {
 	ESCX_ProcessStatus ESCX_StateMachineConfigurePreemptionMap(ESCX_StateMachine*, const ESCX_PreemptionMap*);
 	ESCX_ProcessStatus ESCX_StateMachineConfigureWorkspace(ESCX_StateMachine*, ESCX_MicrostepWorkspace*);
 	ESCX_ProcessStatus ESCX_StateMachineValidateTransitionDomains(const ESCX_StateMachine*);
+	ESCX_ProcessStatus ESCX_StateMachineConfigureTransitionDomainMap(ESCX_StateMachine*, const ESCX_TransitionDomainMap*);
 	ESCX_BOOL_T ESCX_StateMachineIsDataInitialized(const ESCX_StateMachine*, ESCX_BYTE_T);
 	ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine*, ESCX_TimerId);
 	ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine*, ESCX_StartTimerFunction, ESCX_CancelTimerFunction, void*);
@@ -433,6 +444,13 @@ extern "C" {
 #define ESCX_PREEMPTION_BYTE(v) (ESCX_BYTE_T)(v),
 #define ESCX_PREEMPTION_BITS_END() };
 #define ESCX_DEFINE_PREEMPTION_MAP(n,transition_count) static const ESCX_PreemptionMap n##_preemption_map={n##_preemption_bits,(ESCX_UINT16_T)(transition_count),(ESCX_UINT16_T)ESCX_CONFLICT_BYTES(transition_count)}
+#define ESCX_TRANSITION_DOMAINS_BEGIN(n) static const ESCX_TransitionDomainDescriptor n##_transition_domains[] ESCX_ROM={
+#define ESCX_TRANSITION_DOMAIN(domain,effective_type,first,count) {(ESCX_BYTE_T)(domain),(ESCX_BYTE_T)(effective_type),(ESCX_UINT16_T)(first),(ESCX_BYTE_T)(count)},
+#define ESCX_TRANSITION_DOMAINS_END() };
+#define ESCX_TRANSITION_TARGETS_BEGIN(n) static const ESCX_BYTE_T n##_transition_targets[] ESCX_ROM={
+#define ESCX_TRANSITION_TARGET(v) (ESCX_BYTE_T)(v),
+#define ESCX_TRANSITION_TARGETS_END() };
+#define ESCX_DEFINE_TRANSITION_DOMAIN_MAP(n) static const ESCX_TransitionDomainMap n##_transition_domain_map={n##_transition_domains,n##_transition_targets,(ESCX_UINT16_T)(sizeof(n##_transition_domains)/sizeof(n##_transition_domains[0])),(ESCX_UINT16_T)(sizeof(n##_transition_targets)/sizeof(n##_transition_targets[0]))}
 #ifdef __cplusplus
 }
 #endif

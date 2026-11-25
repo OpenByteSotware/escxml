@@ -132,3 +132,8 @@ Transition conflict resolution now uses the W3C SCXML source-ancestry rule rathe
 ########## Stage 50: W3C IRP manifest and exact disposition gate
 
 The repository now includes `conformance/W3C_IRP_MANIFEST.csv` as a machine-readable mapping from official W3C SCXML assertion/test IDs to ESCXML responsibility, disposition, evidence and next action. `MAPPED` is intentionally distinct from `PASS`: a similar local regression test is not an official W3C pass until the W3C machine is imported and reaches its success verdict. A GoogleTest gate validates schema, unique assertion IDs, allowed dispositions and explicit follow-up for every gap. The initial core manifest identifies exact transition-domain gaps for assertions 504, 506 and 533, making future runtime work test-driven instead of speculative. No event-processing path changes in this stage.
+
+
+########### Stage 51: exact generated transition-domain metadata
+
+Optional `ESCX_TransitionDomainMap` metadata records each transition's generated target range, effective transition type and computed transition domain. Configuration validates target IDs, legal internal-transition eligibility, external normalization required by W3C assertions 506/533, and the least common compound ancestor required by assertion 504. Generated exit plans must contain only proper descendants of the validated domain. The runtime loop still executes precomputed exit and entry plans directly; target and LCCA work occurs only during generation and optional startup validation.
