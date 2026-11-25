@@ -110,3 +110,10 @@ Fast dispatch configuration now proves, before the interpreter starts, that ever
 ##### Stage 46: generated transition-domain validation
 
 `ESCX_StateMachineValidateTransitionDomains()` validates generated transition metadata before startup. Targetless transitions must have no exit/entry plans; non-targetless transitions must identify a valid source with the correct generated depth and valid non-empty plans. Generated exit plans must be unique and deepest-first/reverse-document-order, entry plans unique and ancestor-first/document-order. External transitions must exit the source or one of its ancestors. Internal transitions are restricted to compound sources, must not exit that source, and their generated entry plan must remain within the source subtree. The validator is explicitly configuration/test-time so normal microstep execution continues to consume the generated plans without additional transition-domain searches.
+
+
+####### Stage 47: generated conflict-map semantic validation
+
+`ESCX_StateMachineConfigureConflictMap()` now validates every generated transition-pair bit against the conflict relation implied by the validated generated exit plans. The map must be symmetric, its diagonal must mark each transition as conflicting with itself, targetless transitions must not conflict with distinct transitions, and two targeted transitions conflict exactly when their exit-state sets intersect. Configuration rejects any missing or spurious bit before installing the map. Normal transition selection still uses one ROM bit lookup, preserving the O(1) pair-conflict hot path.
+
+This implements the generated-metadata boundary for the W3C SCXML transition-selection algorithm: after enabled transitions are identified, conflicting transitions are those whose exit sets intersect. Descendant-source transitions preempt conflicting ancestor-source transitions; otherwise document order resolves conflicts. ESCXML already performs preemption in `AddEnabledTransition`; Stage 47 proves that its optional generated bitmap encodes the same exit-set conflict predicate used by the normative algorithm.

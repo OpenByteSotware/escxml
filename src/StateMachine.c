@@ -141,6 +141,7 @@ static ESCX_ProcessStatus Stabilize(ESCX_StateMachine*m);
 static void ExitCompleteConfiguration(ESCX_StateMachine*m,void*d);
 static void FinishInterpreter(ESCX_StateMachine*m);
 static ESCX_UINT16_T FindSelector(const ESCX_StateMachine*,ESCX_BYTE_T,ESCX_BYTE_T);
+static ESCX_BOOL_T PlanConflict(const ESCX_StateMachine*,ESCX_UINT16_T,ESCX_UINT16_T);
 ESCX_ProcessStatus ESCX_StateMachineConfigureHistoryMap(ESCX_StateMachine*m,const ESCX_HistoryMap*map)
 {
  ESCX_BYTE_T slot,count,state,history_state,owner,type,previous,seen[ESCX_ACTIVE_BYTES(ESCX_MAX_STATES)];ESCX_UINT16_T first,i,j;ESCX_BOOL_T found;
@@ -189,13 +190,22 @@ static ESCX_BOOL_T ValidateTransitionPlanOrder(const ESCX_StateMachine*m,ESCX_UI
 ESCX_ProcessStatus ESCX_StateMachineValidateTransitionDomains(const ESCX_StateMachine*m)
 {ESCX_UINT16_T i,xp,ep;ESCX_BYTE_T type,source,source_depth;if((m==(const ESCX_StateMachine*)0)||(m->definition==(const ESCX_StateMachineDefinition*)0))return ESCX_STATUS_INVALID_ARGUMENT;if(m->running!=ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<m->definition->transition_count;++i){const ESCX_Transition*t=&m->definition->transitions[i];type=ESCX_ROM_READ_U8(&t->type);source=ESCX_ROM_READ_U8(&t->source_state);source_depth=ESCX_ROM_READ_U8(&t->source_depth);xp=ESCX_ROM_READ_U16(&t->exit_plan);ep=ESCX_ROM_READ_U16(&t->entry_plan);if((type!=ESCX_TRANSITION_EXTERNAL)&&(type!=ESCX_TRANSITION_INTERNAL)&&(type!=ESCX_TRANSITION_TARGETLESS))return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_TRANSITION_TARGETLESS){if((xp!=ESCX_NO_PLAN)||(ep!=ESCX_NO_PLAN))return ESCX_STATUS_INVALID_ARGUMENT;continue;}if((source==ESCX_NO_STATE)||((ESCX_UINT16_T)source>=m->definition->state_count)||(source_depth!=StateDepth(m,source)))return ESCX_STATUS_INVALID_ARGUMENT;if((ValidatePlanRange(m,xp)==ESCX_FALSE)||(ValidatePlanRange(m,ep)==ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT;if((ValidateTransitionPlanOrder(m,xp,ESCX_FALSE)==ESCX_FALSE)||(ValidateTransitionPlanOrder(m,ep,ESCX_TRUE)==ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT;if((xp==ESCX_NO_PLAN)||(ep==ESCX_NO_PLAN))return ESCX_STATUS_INVALID_ARGUMENT;if(type==ESCX_TRANSITION_INTERNAL){if((Type(m,source)!=ESCX_STATE_COMPOUND)||(PlanContainsAncestorOfSource(m,xp,source)!=ESCX_FALSE)||(PlanAllDescendantsOfSource(m,ep,source)==ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT;}else{if(PlanContainsAncestorOfSource(m,xp,source)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;}}
 return ESCX_STATUS_PROCESSED;}
+static ESCX_BOOL_T ConflictMapBit(const ESCX_ConflictMap*map,ESCX_UINT16_T a,ESCX_UINT16_T b)
+{unsigned long index;ESCX_BYTE_T value,mask;index=((unsigned long)a*(unsigned long)map->bytes_per_row)+(unsigned long)(b>>3);value=ESCX_ROM_READ_U8(&map->bits[index]);mask=(ESCX_BYTE_T)(1U<<(b&7U));return((value&mask)!=0U)?ESCX_TRUE:ESCX_FALSE;}
 ESCX_ProcessStatus ESCX_StateMachineConfigureConflictMap(ESCX_StateMachine*m,const ESCX_ConflictMap*map)
 {
- ESCX_UINT16_T required;
+ ESCX_UINT16_T required,a,b;ESCX_BOOL_T expected,actual;
  if((m==(ESCX_StateMachine*)0)||(map==(const ESCX_ConflictMap*)0)||(map->bits==(const ESCX_BYTE_T*)0))return ESCX_STATUS_INVALID_ARGUMENT;
  if(m->running!=ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
  required=(ESCX_UINT16_T)ESCX_CONFLICT_BYTES(m->definition->transition_count);
  if((map->transition_count!=m->definition->transition_count)||(map->bytes_per_row<required))return ESCX_STATUS_INVALID_ARGUMENT;
+ if(ESCX_StateMachineValidateTransitionDomains(m)!=ESCX_STATUS_PROCESSED)return ESCX_STATUS_INVALID_ARGUMENT;
+ for(a=0U;a<m->definition->transition_count;++a){
+  for(b=0U;b<m->definition->transition_count;++b){
+   expected=PlanConflict(m,a,b);actual=ConflictMapBit(map,a,b);
+   if(actual!=expected)return ESCX_STATUS_INVALID_ARGUMENT;
+  }
+ }
  m->conflict_map=map;return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureWorkspace(ESCX_StateMachine*m,ESCX_MicrostepWorkspace*w)
