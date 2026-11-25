@@ -213,6 +213,7 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureSystemContext(ESCX_StateMachine *,c
  ESCX_ProcessStatus ESCX_StateMachineConfigureFastDispatch(ESCX_StateMachine *,const ESCX_FastDispatch *);
  ESCX_ProcessStatus ESCX_StateMachineConfigureConflictMap(ESCX_StateMachine *,const ESCX_ConflictMap *);
  ESCX_ProcessStatus ESCX_StateMachineConfigureWorkspace(ESCX_StateMachine *,ESCX_MicrostepWorkspace *);
+ ESCX_ProcessStatus ESCX_StateMachineValidateTransitionDomains(const ESCX_StateMachine *);
   ESCX_BOOL_T ESCX_StateMachineIsDataInitialized(const ESCX_StateMachine *,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine *,ESCX_TimerId);
 ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine *,ESCX_StartTimerFunction,ESCX_CancelTimerFunction,void *);

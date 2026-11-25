@@ -105,3 +105,8 @@ The runtime now ships `conformance/SCXML_1_0_CONFORMANCE.md`, which defines the 
 ##### Stage 45: complete generated effective-dispatch validation
 
 Fast dispatch configuration now proves, before the interpreter starts, that every generated atomic/final-state and event lookup exactly matches the hierarchical SCXML selection represented by the baseline state tables, including event-prefix fallback, wildcard matching, and ancestor-state precedence. Generated eventless selectors are likewise checked against effective ancestor lookup. Validation can be O(states * events * hierarchy) at configuration time; normal running dispatch remains one row-displacement lookup per active atomic state with no added scans or heap use.
+
+
+##### Stage 46: generated transition-domain validation
+
+`ESCX_StateMachineValidateTransitionDomains()` validates generated transition metadata before startup. Targetless transitions must have no exit/entry plans; non-targetless transitions must identify a valid source with the correct generated depth and valid non-empty plans. Generated exit plans must be unique and deepest-first/reverse-document-order, entry plans unique and ancestor-first/document-order. External transitions must exit the source or one of its ancestors. Internal transitions are restricted to compound sources, must not exit that source, and their generated entry plan must remain within the source subtree. The validator is explicitly configuration/test-time so normal microstep execution continues to consume the generated plans without additional transition-domain searches.
