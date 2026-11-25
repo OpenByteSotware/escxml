@@ -1204,7 +1204,10 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureIOProcessor(ESCX_StateMachine* m, E
 ESCX_ProcessStatus ESCX_StateMachineSendToTarget(ESCX_StateMachine* m, const ESCX_SendTargetDescriptor* t, const ESCX_Event* e)
 {
 	ESCX_InvokeDescriptor d; int status; if ((m == (ESCX_StateMachine*)0) || (t == (const ESCX_SendTargetDescriptor*)0) || (e == (const ESCX_Event*)0))return ESCX_STATUS_INVALID_ARGUMENT; if (m->running == ESCX_FALSE)return ESCX_STATUS_NOT_RUNNING; if (e->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT; if (t->processor == ESCX_IO_PROCESSOR_INTERNAL) {
-		if (t->target_type != ESCX_IO_TARGET_INTERNAL)return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_TARGET); return ESCX_StateMachineRaiseEvent(m, e);
+		ESCX_Event internal_event;
+		if (t->target_type != ESCX_IO_TARGET_INTERNAL)return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_TARGET);
+		internal_event = *e; internal_event.type = ESCX_EVENT_TYPE_INTERNAL; internal_event.origin_type = ESCX_EVENT_ORIGIN_SCXML; internal_event.invoke_id = ESCX_NO_INVOKE;
+		return ESCX_StateMachineRaiseEvent(m, &internal_event);
 	}if (t->processor == ESCX_IO_PROCESSOR_SCXML) {
 		if (t->target_type == ESCX_IO_TARGET_CURRENT_SESSION)return ESCX_StateMachineSendEvent(m, e); if (t->target_type == ESCX_IO_TARGET_PARENT_SESSION) {
 			if ((m->parent_machine == (ESCX_StateMachine*)0) || (m->parent_invoke_id == ESCX_NO_INVOKE))return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_NO_PARENT); return ESCX_StateMachineReceiveInvokeEventDescriptor(m->parent_machine, m->parent_invoke_id, e);
