@@ -1242,9 +1242,7 @@ ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine* m, ESCX_Time
 	ESCX_BYTE_T i; ESCX_DelayedSend pending; if (m == (ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT; if (m->running == ESCX_FALSE)return ESCX_STATUS_NOT_RUNNING; if (id == ESCX_INVALID_TIMER_ID)return ESCX_STATUS_IGNORED;
 	for (i = 0U; i < ESCX_MAX_DELAYED_SENDS; ++i)if ((m->delayed_sends[i].active != ESCX_FALSE) && (m->delayed_sends[i].timer_id == id)) {
 		pending = m->delayed_sends[i]; m->delayed_sends[i].active = ESCX_FALSE; m->delayed_sends[i].timer_id = ESCX_INVALID_TIMER_ID;
-		{
-			ESCX_Event timer_event; timer_event.name_id = pending.event_id; timer_event.type = pending.event_type; timer_event.origin_type = pending.origin_type; timer_event.invoke_id = pending.invoke_id; timer_event.send_id = pending.send_id; timer_event.data = pending.event_data; SetTriggeringEvent(m, &timer_event);
-		}if (pending.uses_target_descriptor != ESCX_FALSE) {
+		if (pending.uses_target_descriptor != ESCX_FALSE) {
 			ESCX_Event delayed_event; delayed_event.name_id = pending.event_id; delayed_event.type = pending.event_type; delayed_event.origin_type = pending.origin_type; delayed_event.invoke_id = pending.invoke_id; delayed_event.send_id = pending.send_id; delayed_event.data = pending.event_data; return ESCX_StateMachineSendToTarget(m, &pending.target_descriptor, &delayed_event);
 		}return DispatchSend(m, pending.event_id, pending.event_data, pending.target, pending.target_id);
 	}
