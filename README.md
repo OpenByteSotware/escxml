@@ -95,3 +95,13 @@ Generated history maps are now validated against their actual history pseudo-sta
 #### Stage 43: generated event-hierarchy validation
 
 Event-prefix parent tables are now validated as an acyclic forest before they are installed. Configuration rejects self-cycles, multi-event cycles, out-of-range parents, and attempts to replace matching tables while the interpreter is running. This keeps hierarchical event matching deterministic and prevents malformed generated metadata from being silently truncated by the runtime probe bound.
+
+
+#### Stage 44: SCXML 1.0 conformance mapping
+
+The runtime now ships `conformance/SCXML_1_0_CONFORMANCE.md`, which defines the embedded processor profile, maps major SCXML 1.0 semantic areas to existing ESCXML runtime facilities and regression stages, separates generator/datamodel responsibilities from runtime behavior, and defines the policy for mapping the W3C Implementation Report Plan state machines into deterministic GoogleTest coverage. Stage 44 intentionally changes no macrostep execution path; future stages should be driven by explicit W3C test dispositions and observed gaps.
+
+
+##### Stage 45: complete generated effective-dispatch validation
+
+Fast dispatch configuration now proves, before the interpreter starts, that every generated atomic/final-state and event lookup exactly matches the hierarchical SCXML selection represented by the baseline state tables, including event-prefix fallback, wildcard matching, and ancestor-state precedence. Generated eventless selectors are likewise checked against effective ancestor lookup. Validation can be O(states * events * hierarchy) at configuration time; normal running dispatch remains one row-displacement lookup per active atomic state with no added scans or heap use.

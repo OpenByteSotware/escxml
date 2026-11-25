@@ -140,6 +140,7 @@ if(h!=(ESCX_HistoryStorage*)0){ESCX_BYTE_T hi;if((h->valid==(ESCX_BYTE_T*)0)||(h
 static ESCX_ProcessStatus Stabilize(ESCX_StateMachine*m);
 static void ExitCompleteConfiguration(ESCX_StateMachine*m,void*d);
 static void FinishInterpreter(ESCX_StateMachine*m);
+static ESCX_UINT16_T FindSelector(const ESCX_StateMachine*,ESCX_BYTE_T,ESCX_BYTE_T);
 ESCX_ProcessStatus ESCX_StateMachineConfigureHistoryMap(ESCX_StateMachine*m,const ESCX_HistoryMap*map)
 {
  ESCX_BYTE_T slot,count,state,history_state,owner,type,previous,seen[ESCX_ACTIVE_BYTES(ESCX_MAX_STATES)];ESCX_UINT16_T first,i,j;ESCX_BOOL_T found;
@@ -158,11 +159,23 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureHistoryMap(ESCX_StateMachine*m,cons
  }
  m->history_map=map;return ESCX_STATUS_PROCESSED;
 }
+static ESCX_UINT16_T FastTableSelector(const ESCX_FastDispatch*fast,ESCX_BYTE_T state,ESCX_BYTE_T event)
+{ESCX_UINT16_T base,slot;base=ESCX_ROM_READ_U16(&fast->state_base[state]);if(base>(ESCX_UINT16_T)(65535U-event))return ESCX_NO_SELECTOR;slot=(ESCX_UINT16_T)(base+event);if(slot>=fast->slot_count)return ESCX_NO_SELECTOR;if(ESCX_ROM_READ_U8(&fast->slot_owner[slot])!=state)return ESCX_NO_SELECTOR;return ESCX_ROM_READ_U16(&fast->slot_selector[slot]);}
+static ESCX_UINT16_T EffectiveGeneratedSelector(const ESCX_StateMachine*m,ESCX_BYTE_T leaf,ESCX_BYTE_T event)
+{ESCX_BYTE_T state,current,parent,depth,probes;ESCX_UINT16_T selector;state=leaf;depth=0U;while(state!=ESCX_NO_STATE){current=event;probes=0U;for(;;){selector=FindSelector(m,state,current);if(selector!=ESCX_NO_SELECTOR)return selector;if((m->event_parent==(const ESCX_BYTE_T*)0)||(current>=m->event_parent_count))break;parent=ESCX_ROM_READ_U8(&m->event_parent[current]);if((parent==ESCX_NO_EVENT)||(parent==current))break;current=parent;if(++probes>ESCX_MAX_HIERARCHY_DEPTH)break;}if((m->wildcard_event!=ESCX_NO_EVENT)&&(m->wildcard_event!=event)){selector=FindSelector(m,state,m->wildcard_event);if(selector!=ESCX_NO_SELECTOR)return selector;}state=Parent(m,state);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)break;}return ESCX_NO_SELECTOR;}
+static ESCX_UINT16_T EffectiveGeneratedEventlessSelector(const ESCX_StateMachine*m,ESCX_BYTE_T leaf)
+{ESCX_BYTE_T state,depth;ESCX_UINT16_T selector;state=leaf;depth=0U;while(state!=ESCX_NO_STATE){selector=EventlessSelector(m,state);if(selector!=ESCX_NO_SELECTOR)return selector;state=Parent(m,state);if(++depth>ESCX_MAX_HIERARCHY_DEPTH)break;}return ESCX_NO_SELECTOR;}
 ESCX_ProcessStatus ESCX_StateMachineConfigureFastDispatch(ESCX_StateMachine*m,const ESCX_FastDispatch*fast)
 {
+ ESCX_BYTE_T state,event;ESCX_UINT16_T expected,actual;
  if((m==(ESCX_StateMachine*)0)||(fast==(const ESCX_FastDispatch*)0)||(fast->state_base==(const ESCX_UINT16_T*)0)||(fast->slot_owner==(const ESCX_BYTE_T*)0)||(fast->slot_selector==(const ESCX_UINT16_T*)0))return ESCX_STATUS_INVALID_ARGUMENT;
  if(m->running!=ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
  if((fast->eventless_selector!=(const ESCX_UINT16_T*)0)&&(fast->eventless_count<m->definition->state_count))return ESCX_STATUS_INVALID_ARGUMENT;
+ for(state=1U;(ESCX_UINT16_T)state<m->definition->state_count;++state){
+  if((Type(m,state)!=ESCX_STATE_ATOMIC)&&(Type(m,state)!=ESCX_STATE_FINAL))continue;
+  for(event=0U;event<m->definition->event_count;++event){expected=EffectiveGeneratedSelector(m,state,event);actual=FastTableSelector(fast,state,event);if((expected!=ESCX_NO_SELECTOR)&&(actual!=expected))return ESCX_STATUS_INVALID_ARGUMENT;if((actual!=ESCX_NO_SELECTOR)&&(actual>=m->definition->selector_count))return ESCX_STATUS_INVALID_ARGUMENT;}
+  if(fast->eventless_selector!=(const ESCX_UINT16_T*)0){expected=EffectiveGeneratedEventlessSelector(m,state);actual=ESCX_ROM_READ_U16(&fast->eventless_selector[state]);if(actual!=expected)return ESCX_STATUS_INVALID_ARGUMENT;if((actual!=ESCX_NO_SELECTOR)&&(actual>=m->definition->selector_count))return ESCX_STATUS_INVALID_ARGUMENT;}
+ }
  m->fast_dispatch=fast;return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureConflictMap(ESCX_StateMachine*m,const ESCX_ConflictMap*map)
