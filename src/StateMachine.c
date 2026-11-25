@@ -618,6 +618,8 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ES
 	if (m->processing == ESCX_FALSE) {
 		ESCX_ProcessStatus result; m->processing = ESCX_TRUE; result = Stabilize(m); m->processing = ESCX_FALSE; if ((result == ESCX_STATUS_PROCESSED) && (m->finish_pending != ESCX_FALSE))FinishInterpreter(m); return result;
 	}
+	/* Finalize ran synchronously, but the queued done.invoke event will be consumed later. */
+	SetNeutralCurrentEvent(m);
 	return ESCX_STATUS_PROCESSED;
 }
 
