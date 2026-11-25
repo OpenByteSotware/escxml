@@ -147,3 +147,8 @@ Generated `<cancel>` executable content is now idempotent when its send ID has n
 ############# Stage 53: internal-target send constraints
 
 SCXML internal-queue sends are now accepted only with zero delay. Both generated targeted sends using the internal I/O processor and the legacy internal send request reject a positive delay as `ESCX_STATUS_INVALID_TARGET`, record `ESCX_ERROR_EXECUTION`, and avoid allocating a delayed-send slot or starting a platform timer. Zero-delay internal sends retain FIFO internal-queue behavior. The new validation is a fixed set of field comparisons, so it adds O(1) work independent of state, transition, event, or hierarchy size.
+
+
+############## Stage 54: done.state payload scope
+
+A final state's generated `donedata` payload is now attached only to the `done.state.*` event for that final state's immediate compound parent. If the completion also causes an enclosing parallel state to complete, the parallel state's separate `done.state.*` event carries no payload instead of incorrectly reusing the payload from whichever region completed last. Completion latches and generated done-event IDs remain unchanged. The runtime adds only one parent comparison per emitted completion event and does not scan additional states.

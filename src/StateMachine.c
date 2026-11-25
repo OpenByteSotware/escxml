@@ -637,19 +637,21 @@ static ESCX_BOOL_T IsComplete(const ESCX_StateMachine* m, ESCX_BYTE_T state)
 }
 static ESCX_ProcessStatus NotifyFinalEntered(ESCX_StateMachine* m, ESCX_BYTE_T final_state)
 {
-	ESCX_BYTE_T state, event_id; ESCX_DoneDataFunction done_data; void* payload = (void*)0; int status; done_data = ReadDoneData(&m->definition->states[final_state].done_data); if (done_data != (ESCX_DoneDataFunction)0) {
+	ESCX_BYTE_T state, immediate_parent, event_id; ESCX_DoneDataFunction done_data; void* payload = (void*)0; void* completion_payload; int status; done_data = ReadDoneData(&m->definition->states[final_state].done_data); if (done_data != (ESCX_DoneDataFunction)0) {
 		status = done_data(m, &payload); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status);
-	}state = Parent(m, final_state); while (state != ESCX_NO_STATE) {
+	}immediate_parent = Parent(m, final_state); state = immediate_parent; while (state != ESCX_NO_STATE) {
 		if (IsComplete(m, state) == ESCX_FALSE)break; if (CompletionWasEmitted(m, state) != ESCX_FALSE) {
 			state = Parent(m, state); continue;
 		}SetCompletionEmitted(m, state, ESCX_TRUE); if (Parent(m, state) == ESCX_NO_STATE) {
 			m->finished = ESCX_TRUE; m->finish_pending = ESCX_TRUE; return ESCX_STATUS_PROCESSED;
 		}event_id = DoneEvent(m, state); if (event_id != ESCX_NO_EVENT) {
-			if (ESCX_EventQueuePushEx(&m->internal_queue, event_id, ESCX_EVENT_TYPE_INTERNAL, ESCX_EVENT_ORIGIN_SCXML, ESCX_NO_INVOKE, ESCX_NO_SEND_ID, payload) == ESCX_FALSE) {
+			/* Final-state donedata belongs only to done.state of its immediate compound parent. */
+			completion_payload = (state == immediate_parent) ? payload : (void*)0;
+			if (ESCX_EventQueuePushEx(&m->internal_queue, event_id, ESCX_EVENT_TYPE_INTERNAL, ESCX_EVENT_ORIGIN_SCXML, ESCX_NO_INVOKE, ESCX_NO_SEND_ID, completion_payload) == ESCX_FALSE) {
 				SetCompletionEmitted(m, state, ESCX_FALSE); return ESCX_STATUS_QUEUE_FULL;
 			}
 		}state = Parent(m, state);
-	}if (Parent(m, final_state) == ESCX_NO_STATE) {
+	}if (immediate_parent == ESCX_NO_STATE) {
 		m->finished = ESCX_TRUE; m->finish_pending = ESCX_TRUE;
 	}return ESCX_STATUS_PROCESSED;
 }
