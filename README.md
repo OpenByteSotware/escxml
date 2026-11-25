@@ -122,3 +122,8 @@ This implements the generated-metadata boundary for the W3C SCXML transition-sel
 ######## Stage 48: normative transition preemption validation
 
 Transition conflict resolution now uses the W3C SCXML source-ancestry rule rather than treating greater source depth as proof of descent. A candidate preempts a conflicting existing transition only when its source is a proper descendant of the existing source; when the sources are equal or unrelated, document order decides. Optional generated `ESCX_PreemptionMap` ROM metadata provides an O(1) runtime relation. `ESCX_StateMachineConfigurePreemptionMap()` validates every generated bit against actual state ancestry and document order before startup. Without a map, the corrected bounded ancestry fallback is used.
+
+
+######### Stage 49: exact fast-dispatch validation
+
+`ESCX_StateMachineConfigureFastDispatch()` now requires exact equality between every authoritative generated fast event lookup and the effective hierarchical selector obtained from the baseline state/event tables. A generated entry is rejected both when a required selector is missing and when a spurious selector is present where hierarchical SCXML event matching finds no transition selector. Event-prefix, wildcard and ancestor-state flattening remain covered by the same comparison; eventless mappings were already exact and remain unchanged. Configuration-time validation may scan states, events and bounded ancestry, while normal event dispatch remains one row-displacement ROM lookup per active atomic state with no fallback scan or heap use.

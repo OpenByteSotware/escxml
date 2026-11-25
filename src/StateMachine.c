@@ -381,7 +381,7 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureFastDispatch(ESCX_StateMachine* m, 
 	for (state = 1U; (ESCX_UINT16_T)state < m->definition->state_count; ++state) {
 		if ((Type(m, state) != ESCX_STATE_ATOMIC) && (Type(m, state) != ESCX_STATE_FINAL))continue;
 		for (event = 0U; event < m->definition->event_count; ++event) {
-			expected = EffectiveGeneratedSelector(m, state, event); actual = FastTableSelector(fast, state, event); if ((expected != ESCX_NO_SELECTOR) && (actual != expected))return ESCX_STATUS_INVALID_ARGUMENT; if ((actual != ESCX_NO_SELECTOR) && (actual >= m->definition->selector_count))return ESCX_STATUS_INVALID_ARGUMENT;
+			expected = EffectiveGeneratedSelector(m, state, event); actual = FastTableSelector(fast, state, event); if (actual != expected)return ESCX_STATUS_INVALID_ARGUMENT; if ((actual != ESCX_NO_SELECTOR) && (actual >= m->definition->selector_count))return ESCX_STATUS_INVALID_ARGUMENT;
 		}
 		if (fast->eventless_selector != (const ESCX_UINT16_T*)0) {
 			expected = EffectiveGeneratedEventlessSelector(m, state); actual = ESCX_ROM_READ_U16(&fast->eventless_selector[state]); if (actual != expected)return ESCX_STATUS_INVALID_ARGUMENT; if ((actual != ESCX_NO_SELECTOR) && (actual >= m->definition->selector_count))return ESCX_STATUS_INVALID_ARGUMENT;

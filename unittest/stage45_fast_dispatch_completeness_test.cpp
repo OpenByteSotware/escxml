@@ -66,3 +66,43 @@ TEST(FastDispatchCompleteness, RejectsIncorrectEffectiveEventlessSelector)
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureEventMatching(&m, parents, 3, ESCX_NO_EVENT));
 	EXPECT_EQ(ESCX_STATUS_INVALID_ARGUMENT, ESCX_StateMachineConfigureFastDispatch(&m, &bad));
 }
+
+TEST(FastDispatchCompleteness, RejectsSpuriousSelectorWhereHierarchyHasNoMapping)
+{
+    ESCX_StateMachine m = {};
+    ESCX_BYTE_T active[1] = {};
+    Data data = { 0,0 };
+
+    /* Event 0 has no exact, prefix, wildcard, or ancestor selector in def. */
+    const ESCX_UINT16_T spurious_bases[3] = { 0,0,0 };
+    const ESCX_BYTE_T spurious_owners[3] = { 0,0,2 };
+    const ESCX_UINT16_T spurious_slots[3] =
+    {
+        ESCX_NO_SELECTOR,
+        ESCX_NO_SELECTOR,
+        0
+    };
+    const ESCX_FastDispatch spurious =
+    {
+        spurious_bases,
+        spurious_owners,
+        spurious_slots,
+        3,
+        fast_eventless,
+        3
+    };
+
+    ESCX_StateMachineInit(&m, &def, &data, active, 1, 0, 0, 0);
+    ASSERT_EQ(
+        ESCX_STATUS_PROCESSED,
+        ESCX_StateMachineConfigureEventMatching(
+            &m,
+            parents,
+            3,
+            ESCX_NO_EVENT));
+
+    EXPECT_EQ(
+        ESCX_STATUS_INVALID_ARGUMENT,
+        ESCX_StateMachineConfigureFastDispatch(&m, &spurious));
+    EXPECT_EQ(nullptr, m.fast_dispatch);
+}
