@@ -142,3 +142,8 @@ Optional `ESCX_TransitionDomainMap` metadata records each transition's generated
 ############ Stage 52: W3C cancel idempotence
 
 Generated `<cancel>` executable content is now idempotent when its send ID has no pending delayed send. `ESCX_StateMachineCancelSend()` retains `ESCX_STATUS_SEND_NOT_FOUND` as a useful host API diagnostic, while `ESCX_StateMachineExecuteContent()` treats that result as successful completion of the SCXML `<cancel>` instruction and does not enqueue `error.execution`. Actual timer-cancellation failures still report `error.execution` and stop the executable block. The operation remains bounded by `ESCX_MAX_DELAYED_SENDS`, a compile-time fixed capacity independent of total state-machine size.
+
+
+############# Stage 53: internal-target send constraints
+
+SCXML internal-queue sends are now accepted only with zero delay. Both generated targeted sends using the internal I/O processor and the legacy internal send request reject a positive delay as `ESCX_STATUS_INVALID_TARGET`, record `ESCX_ERROR_EXECUTION`, and avoid allocating a delayed-send slot or starting a platform timer. Zero-delay internal sends retain FIFO internal-queue behavior. The new validation is a fixed set of field comparisons, so it adds O(1) work independent of state, transition, event, or hierarchy size.

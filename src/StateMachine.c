@@ -1230,6 +1230,7 @@ ESCX_ProcessStatus ESCX_StateMachineSendTargetedRequest(ESCX_StateMachine* m, co
 	if ((m == (ESCX_StateMachine*)0) || (request == (const ESCX_TargetedSendRequest*)0))return ESCX_STATUS_INVALID_ARGUMENT;
 	if (m->running == ESCX_FALSE)return ESCX_STATUS_NOT_RUNNING;
 	if (request->event.name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;
+	if ((request->delay_ticks != 0UL) && (request->target.processor == ESCX_IO_PROCESSOR_INTERNAL) && (request->target.target_type == ESCX_IO_TARGET_INTERNAL))return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_INVALID_TARGET);
 	if (request->delay_ticks == 0UL)return ESCX_StateMachineSendToTarget(m, &request->target, &request->event);
 #if ESCX_ENABLE_DELAYED_SENDS
 	if (m->start_timer == (ESCX_StartTimerFunction)0)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_TIMER_START_FAILED);
@@ -1269,6 +1270,7 @@ ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine* m, const ESCX
 	if ((m == (ESCX_StateMachine*)0) || (request == (const ESCX_SendRequest*)0))return ESCX_STATUS_INVALID_ARGUMENT;
 	if (m->running == ESCX_FALSE)return ESCX_STATUS_NOT_RUNNING;
 	if (request->event_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;
+	if ((request->delay_ticks != 0UL) && (request->target == ESCX_SEND_TARGET_INTERNAL))return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_INVALID_TARGET);
 	if (request->delay_ticks == 0UL)return DispatchSend(m, request->event_id, request->event_data, request->target, request->target_id);
 #if ESCX_ENABLE_DELAYED_SENDS
 	if (m->start_timer == (ESCX_StartTimerFunction)0)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_TIMER_START_FAILED);
