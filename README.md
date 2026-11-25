@@ -90,3 +90,8 @@ Startup is now transactional from the runtime's perspective. Failures during ear
 ### Stage 42: generated history validation and deep-history conformance
 
 Generated history maps are now validated against their actual history pseudo-state and owner. Every slot must have exactly one history state, mapped states must be unique descendants of that owner, shallow history may contain only direct children, and deep-history entries must be in ancestor-before-descendant and document order. History pseudo-states cannot be recorded as configuration states. These guarantees make generated deep-history restoration deterministic for nested compound and parallel configurations.
+
+
+#### Stage 43: generated event-hierarchy validation
+
+Event-prefix parent tables are now validated as an acyclic forest before they are installed. Configuration rejects self-cycles, multi-event cycles, out-of-range parents, and attempts to replace matching tables while the interpreter is running. This keeps hierarchical event matching deterministic and prevents malformed generated metadata from being silently truncated by the runtime probe bound.

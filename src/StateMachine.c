@@ -366,12 +366,26 @@ static ESCX_ProcessStatus AddEnabledTransition(const ESCX_StateMachine*m,ESCX_UI
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureEventMatching(ESCX_StateMachine*m,const ESCX_BYTE_T*parents,ESCX_BYTE_T count,ESCX_BYTE_T wildcard_event)
 {
- ESCX_BYTE_T i,parent;
+ ESCX_BYTE_T i,parent,current,steps;
  if((m==(ESCX_StateMachine*)0)||(m->definition==(const ESCX_StateMachineDefinition*)0))return ESCX_STATUS_INVALID_ARGUMENT;
+ if(m->running!=ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
  if((count!=0U)&&(parents==(const ESCX_BYTE_T*)0))return ESCX_STATUS_INVALID_ARGUMENT;
  if(count<m->definition->event_count)return ESCX_STATUS_INVALID_ARGUMENT;
  if((wildcard_event!=ESCX_NO_EVENT)&&(wildcard_event>=m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
- for(i=0U;i<m->definition->event_count;++i){parent=ESCX_ROM_READ_U8(&parents[i]);if((parent!=ESCX_NO_EVENT)&&(parent>=m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;}
+ for(i=0U;i<m->definition->event_count;++i){
+  parent=ESCX_ROM_READ_U8(&parents[i]);
+  if((parent!=ESCX_NO_EVENT)&&(parent>=m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
+  current=i;steps=0U;
+  while(current!=ESCX_NO_EVENT){
+   if(current>=m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;
+   parent=ESCX_ROM_READ_U8(&parents[current]);
+   if(parent==ESCX_NO_EVENT)break;
+   if((parent==current)||(parent==i))return ESCX_STATUS_INVALID_ARGUMENT;
+   current=parent;
+   ++steps;
+   if(steps>=m->definition->event_count)return ESCX_STATUS_INVALID_ARGUMENT;
+  }
+ }
  m->event_parent=parents;m->event_parent_count=count;m->wildcard_event=wildcard_event;return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureSystemContext(ESCX_StateMachine*m,const ESCX_SystemContext*context)
