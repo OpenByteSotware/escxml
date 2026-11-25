@@ -123,21 +123,21 @@ static ESCX_UINT16_T InitialEntryPlan(const ESCX_StateMachine* m, ESCX_BYTE_T s)
 }
 static void SetActive(ESCX_StateMachine* m, ESCX_BYTE_T s, ESCX_BOOL_T on)
 {
-	ESCX_BYTE_T i, mask; i = (ESCX_BYTE_T)(s >> 3); mask = (ESCX_BYTE_T)(1U << (s & 7U)); 
-	if (i >= m->active_byte_count)return; 
-	if (on)m->active_bits[i] = (ESCX_BYTE_T)(m->active_bits[i] | mask); 
+	ESCX_BYTE_T i, mask; i = (ESCX_BYTE_T)(s >> 3); mask = (ESCX_BYTE_T)(1U << (s & 7U));
+	if (i >= m->active_byte_count)return;
+	if (on)m->active_bits[i] = (ESCX_BYTE_T)(m->active_bits[i] | mask);
 	else m->active_bits[i] = (ESCX_BYTE_T)(m->active_bits[i] & ((ESCX_BYTE_T)~mask));
 }
 static ESCX_BOOL_T IsActive(const ESCX_StateMachine* m, ESCX_BYTE_T s)
 {
-	ESCX_BYTE_T i, mask; i = (ESCX_BYTE_T)(s >> 3); 
-	if (i >= m->active_byte_count)return ESCX_FALSE; mask = (ESCX_BYTE_T)(1U << (s & 7U)); 
+	ESCX_BYTE_T i, mask; i = (ESCX_BYTE_T)(s >> 3);
+	if (i >= m->active_byte_count)return ESCX_FALSE; mask = (ESCX_BYTE_T)(1U << (s & 7U));
 	return((m->active_bits[i] & mask) != 0U) ? ESCX_TRUE : ESCX_FALSE;
 }
 static ESCX_BOOL_T CompletionWasEmitted(const ESCX_StateMachine* m, ESCX_BYTE_T s)
 {
 	ESCX_BYTE_T i, mask; if (m->completion_bits == (ESCX_BYTE_T*)0)return ESCX_FALSE;
-	i = (ESCX_BYTE_T)(s >> 3); 
+	i = (ESCX_BYTE_T)(s >> 3);
 	if (i >= m->completion_byte_count)return ESCX_FALSE; mask = (ESCX_BYTE_T)(1U << (s & 7U)); return((m->completion_bits[i] & mask) != 0U) ? ESCX_TRUE : ESCX_FALSE;
 }
 static void SetCompletionEmitted(ESCX_StateMachine* m, ESCX_BYTE_T s, ESCX_BOOL_T on)
@@ -420,14 +420,42 @@ static ESCX_BOOL_T ValidateTransitionPlanOrder(const ESCX_StateMachine* m, ESCX_
 		}previous = state;
 	}return ESCX_TRUE;
 }
-static void ReadTransitionDomainDescriptor(const ESCX_TransitionDomainMap*map,ESCX_UINT16_T index,ESCX_TransitionDomainDescriptor*out)
-{(void)ESCX_ROM_COPY(out,&map->transitions[index],sizeof(*out));}
-static ESCX_BYTE_T LeastCommonCompoundAncestor(const ESCX_StateMachine*m,ESCX_BYTE_T source,const ESCX_TransitionDomainMap*map,const ESCX_TransitionDomainDescriptor*d)
-{ESCX_BYTE_T candidate,target;ESCX_UINT16_T i;candidate=source;while(candidate!=ESCX_NO_STATE){if((Type(m,candidate)==ESCX_STATE_COMPOUND)||(Type(m,candidate)==ESCX_STATE_PARALLEL)){for(i=0U;i<d->target_count;++i){target=ESCX_ROM_READ_U8(&map->targets[d->first_target+i]);if(IsDescendantOf(m,target,candidate)==ESCX_FALSE)break;}if(i==d->target_count)return candidate;}candidate=Parent(m,candidate);}return ESCX_NO_STATE;}
-static ESCX_BOOL_T ExitPlanMatchesDomain(const ESCX_StateMachine*m,ESCX_UINT16_T pid,ESCX_BYTE_T domain)
-{const ESCX_StatePlan*p;ESCX_UINT16_T first,i;ESCX_BYTE_T count,state;if(pid==ESCX_NO_PLAN)return ESCX_FALSE;p=&m->definition->plans[pid];first=ESCX_ROM_READ_U16(&p->first_state);count=ESCX_ROM_READ_U8(&p->state_count);for(i=0U;i<count;++i){state=ESCX_ROM_READ_U8(&m->definition->plan_states[first+i]);if((state==domain)||(IsDescendantOf(m,state,domain)==ESCX_FALSE))return ESCX_FALSE;}return ESCX_TRUE;}
-ESCX_ProcessStatus ESCX_StateMachineConfigureTransitionDomainMap(ESCX_StateMachine*m,const ESCX_TransitionDomainMap*map)
-{ESCX_UINT16_T i,j;ESCX_BYTE_T declared,source,target,expected_type,expected_domain;ESCX_TransitionDomainDescriptor d;if((m==(ESCX_StateMachine*)0)||(map==(const ESCX_TransitionDomainMap*)0)||(map->transitions==(const ESCX_TransitionDomainDescriptor*)0)||(map->targets==(const ESCX_BYTE_T*)0)||(m->running!=ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT;if(map->transition_count!=m->definition->transition_count)return ESCX_STATUS_INVALID_ARGUMENT;for(i=0U;i<map->transition_count;++i){ReadTransitionDomainDescriptor(map,i,&d);declared=ESCX_ROM_READ_U8(&m->definition->transitions[i].type);source=ESCX_ROM_READ_U8(&m->definition->transitions[i].source_state);if((ESCX_UINT16_T)(d.first_target+d.target_count)>map->target_count)return ESCX_STATUS_INVALID_ARGUMENT;if(declared==ESCX_TRANSITION_TARGETLESS){if((d.target_count!=0U)||(d.domain_state!=ESCX_NO_STATE)||(d.effective_type!=ESCX_TRANSITION_TARGETLESS))return ESCX_STATUS_INVALID_ARGUMENT;continue;}if((d.target_count==0U)||(source==ESCX_NO_STATE))return ESCX_STATUS_INVALID_ARGUMENT;for(j=0U;j<d.target_count;++j){target=ESCX_ROM_READ_U8(&map->targets[d.first_target+j]);if((target==ESCX_NO_STATE)||((ESCX_UINT16_T)target>=m->definition->state_count))return ESCX_STATUS_INVALID_ARGUMENT;}expected_type=declared;if(declared==ESCX_TRANSITION_INTERNAL){if(Type(m,source)!=ESCX_STATE_COMPOUND)expected_type=ESCX_TRANSITION_EXTERNAL;else for(j=0U;j<d.target_count;++j){target=ESCX_ROM_READ_U8(&map->targets[d.first_target+j]);if((target==source)||(IsDescendantOf(m,target,source)==ESCX_FALSE)){expected_type=ESCX_TRANSITION_EXTERNAL;break;}}}expected_domain=(expected_type==ESCX_TRANSITION_INTERNAL)?source:LeastCommonCompoundAncestor(m,source,map,&d);if((d.effective_type!=expected_type)||(d.domain_state!=expected_domain)||(expected_domain==ESCX_NO_STATE))return ESCX_STATUS_INVALID_ARGUMENT;if(ExitPlanMatchesDomain(m,ESCX_ROM_READ_U16(&m->definition->transitions[i].exit_plan),expected_domain)==ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;}m->transition_domain_map=map;return ESCX_STATUS_PROCESSED;}
+static void ReadTransitionDomainDescriptor(const ESCX_TransitionDomainMap* map, ESCX_UINT16_T index, ESCX_TransitionDomainDescriptor* out)
+{
+	(void)ESCX_ROM_COPY(out, &map->transitions[index], sizeof(*out));
+}
+static ESCX_BYTE_T LeastCommonCompoundAncestor(const ESCX_StateMachine* m, ESCX_BYTE_T source, const ESCX_TransitionDomainMap* map, const ESCX_TransitionDomainDescriptor* d)
+{
+	ESCX_BYTE_T candidate, target; ESCX_UINT16_T i; candidate = source; while (candidate != ESCX_NO_STATE) {
+		if ((Type(m, candidate) == ESCX_STATE_COMPOUND) || (Type(m, candidate) == ESCX_STATE_PARALLEL)) {
+			for (i = 0U; i < d->target_count; ++i) {
+				target = ESCX_ROM_READ_U8(&map->targets[d->first_target + i]); if (IsDescendantOf(m, target, candidate) == ESCX_FALSE)break;
+			}if (i == d->target_count)return candidate;
+		}candidate = Parent(m, candidate);
+	}return ESCX_NO_STATE;
+}
+static ESCX_BOOL_T ExitPlanMatchesDomain(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T domain)
+{
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) {
+		state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if ((state == domain) || (IsDescendantOf(m, state, domain) == ESCX_FALSE))return ESCX_FALSE;
+	}return ESCX_TRUE;
+}
+ESCX_ProcessStatus ESCX_StateMachineConfigureTransitionDomainMap(ESCX_StateMachine* m, const ESCX_TransitionDomainMap* map)
+{
+	ESCX_UINT16_T i, j; ESCX_BYTE_T declared, source, target, expected_type, expected_domain; ESCX_TransitionDomainDescriptor d; if ((m == (ESCX_StateMachine*)0) || (map == (const ESCX_TransitionDomainMap*)0) || (map->transitions == (const ESCX_TransitionDomainDescriptor*)0) || (map->targets == (const ESCX_BYTE_T*)0) || (m->running != ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (map->transition_count != m->definition->transition_count)return ESCX_STATUS_INVALID_ARGUMENT; for (i = 0U; i < map->transition_count; ++i) {
+		ReadTransitionDomainDescriptor(map, i, &d); declared = ESCX_ROM_READ_U8(&m->definition->transitions[i].type); source = ESCX_ROM_READ_U8(&m->definition->transitions[i].source_state); if ((ESCX_UINT16_T)(d.first_target + d.target_count) > map->target_count)return ESCX_STATUS_INVALID_ARGUMENT; if (declared == ESCX_TRANSITION_TARGETLESS) {
+			if ((d.target_count != 0U) || (d.domain_state != ESCX_NO_STATE) || (d.effective_type != ESCX_TRANSITION_TARGETLESS))return ESCX_STATUS_INVALID_ARGUMENT; continue;
+		}if ((d.target_count == 0U) || (source == ESCX_NO_STATE))return ESCX_STATUS_INVALID_ARGUMENT; for (j = 0U; j < d.target_count; ++j) {
+			target = ESCX_ROM_READ_U8(&map->targets[d.first_target + j]); if ((target == ESCX_NO_STATE) || ((ESCX_UINT16_T)target >= m->definition->state_count))return ESCX_STATUS_INVALID_ARGUMENT;
+		}expected_type = declared; if (declared == ESCX_TRANSITION_INTERNAL) {
+			if (Type(m, source) != ESCX_STATE_COMPOUND)expected_type = ESCX_TRANSITION_EXTERNAL; else for (j = 0U; j < d.target_count; ++j) {
+				target = ESCX_ROM_READ_U8(&map->targets[d.first_target + j]); if ((target == source) || (IsDescendantOf(m, target, source) == ESCX_FALSE)) {
+					expected_type = ESCX_TRANSITION_EXTERNAL; break;
+				}
+			}
+		}expected_domain = (expected_type == ESCX_TRANSITION_INTERNAL) ? source : LeastCommonCompoundAncestor(m, source, map, &d); if ((d.effective_type != expected_type) || (d.domain_state != expected_domain) || (expected_domain == ESCX_NO_STATE))return ESCX_STATUS_INVALID_ARGUMENT; if (ExitPlanMatchesDomain(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].exit_plan), expected_domain) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
+	}m->transition_domain_map = map; return ESCX_STATUS_PROCESSED;
+}
 ESCX_ProcessStatus ESCX_StateMachineValidateTransitionDomains(const ESCX_StateMachine* m)
 {
 	ESCX_UINT16_T i, xp, ep; ESCX_BYTE_T type, source, source_depth; if ((m == (const ESCX_StateMachine*)0) || (m->definition == (const ESCX_StateMachineDefinition*)0))return ESCX_STATUS_INVALID_ARGUMENT; if (m->running != ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT; for (i = 0U; i < m->definition->transition_count; ++i) {
@@ -558,27 +586,53 @@ static ESCX_ProcessStatus ExecuteInvokeFinalizeEvent(ESCX_StateMachine* m, const
 }
 ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, const ESCX_Event* event)
 {
-	ESCX_InvokeDescriptor d; ESCX_DoneDataFunction done_data; ESCX_ProcessStatus fs; ESCX_Event done; void* payload; int status;
-	if ((m == (ESCX_StateMachine*)0) || (event == (const ESCX_Event*)0) || (invoke_id >= m->invoke_count) || (m->invoke_instances[invoke_id].active == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT;
-	ReadInvokeDescriptor(m, invoke_id, &d); m->invoke_instances[invoke_id].active = ESCX_FALSE; done = *event; done.origin_type = ESCX_EVENT_ORIGIN_INVOKE; done.invoke_id = invoke_id; payload = done.data; done_data = d.done_data;
+	ESCX_InvokeDescriptor d; 
+	ESCX_DoneDataFunction done_data; 
+	ESCX_ProcessStatus fs;
+	ESCX_Event done;
+	void* payload; 
+	int status;
+	if ((m == (ESCX_StateMachine*)0) || (event == (const ESCX_Event*)0) || (invoke_id >= m->invoke_count) || (m->invoke_instances[invoke_id].active == ESCX_FALSE))
+		return ESCX_STATUS_INVALID_ARGUMENT;
+	ReadInvokeDescriptor(m, invoke_id, &d); 
+	m->invoke_instances[invoke_id].active = ESCX_FALSE; 
+	done = *event; done.origin_type = ESCX_EVENT_ORIGIN_INVOKE;
+	done.invoke_id = invoke_id; 
+	payload = done.data;
+	done_data = d.done_data;
 	if ((payload == (void*)0) && (done_data != (ESCX_DoneDataFunction)0)) {
 		status = done_data(m, &payload); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status); done.data = payload;
 	}
-	fs = ExecuteInvokeFinalizeEvent(m, &d, &done); if (fs != ESCX_STATUS_PROCESSED) { SetNeutralCurrentEvent(m); return fs; }
-	if (done.name_id == ESCX_NO_EVENT) { SetNeutralCurrentEvent(m); return ESCX_STATUS_PROCESSED; }
-	if (done.name_id >= m->definition->event_count) { SetNeutralCurrentEvent(m); return ESCX_STATUS_INVALID_EVENT; }
-	if (ESCX_EventQueuePushEx(&m->internal_queue, done.name_id, done.type, done.origin_type, done.invoke_id, done.send_id, done.data) == ESCX_FALSE) { SetNeutralCurrentEvent(m); return ESCX_STATUS_QUEUE_FULL; }
+	fs = ExecuteInvokeFinalizeEvent(m, &d, &done); if (fs != ESCX_STATUS_PROCESSED) {
+		SetNeutralCurrentEvent(m); return fs;
+	}
+	if (done.name_id == ESCX_NO_EVENT) {
+		SetNeutralCurrentEvent(m); return ESCX_STATUS_PROCESSED;
+	}
+	if (done.name_id >= m->definition->event_count) {
+		SetNeutralCurrentEvent(m); return ESCX_STATUS_INVALID_EVENT;
+	}
+	if (ESCX_EventQueuePushEx(&m->internal_queue, done.name_id, done.type, done.origin_type, done.invoke_id, done.send_id, done.data) == ESCX_FALSE) {
+		SetNeutralCurrentEvent(m); return ESCX_STATUS_QUEUE_FULL;
+	}
 	if (m->processing == ESCX_FALSE) {
 		ESCX_ProcessStatus result; m->processing = ESCX_TRUE; result = Stabilize(m); m->processing = ESCX_FALSE; if ((result == ESCX_STATUS_PROCESSED) && (m->finish_pending != ESCX_FALSE))FinishInterpreter(m); return result;
-	}return ESCX_STATUS_PROCESSED;
+	}
+	return ESCX_STATUS_PROCESSED;
 }
+
 ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, void* data)
 {
 	ESCX_InvokeDescriptor d; ESCX_Event event; if ((m == (ESCX_StateMachine*)0) || (invoke_id >= m->invoke_count))return ESCX_STATUS_INVALID_ARGUMENT; ReadInvokeDescriptor(m, invoke_id, &d); event.name_id = d.done_event; event.type = ESCX_EVENT_TYPE_INTERNAL; event.origin_type = ESCX_EVENT_ORIGIN_INVOKE; event.invoke_id = invoke_id; event.send_id = ESCX_NO_SEND_ID; event.data = data; return ESCX_StateMachineCompleteInvokeEvent(m, invoke_id, &event);
 }
+
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, const ESCX_Event* event)
 {
-	ESCX_InvokeDescriptor d; ESCX_ProcessStatus fs; ESCX_Event normalized; if ((m == (ESCX_StateMachine*)0) || (event == (const ESCX_Event*)0) || (invoke_id >= m->invoke_count) || (m->invoke_instances[invoke_id].active == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (event->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT; normalized = *event; normalized.origin_type = ESCX_EVENT_ORIGIN_INVOKE; normalized.invoke_id = invoke_id; ReadInvokeDescriptor(m, invoke_id, &d); fs = ExecuteInvokeFinalizeEvent(m, &d, &normalized); if (fs != ESCX_STATUS_PROCESSED) { SetNeutralCurrentEvent(m); return fs; } if (ESCX_EventQueuePushEx(&m->internal_queue, normalized.name_id, normalized.type, normalized.origin_type, normalized.invoke_id, normalized.send_id, normalized.data) == ESCX_FALSE) { SetNeutralCurrentEvent(m); return ESCX_STATUS_QUEUE_FULL; } if (m->processing == ESCX_FALSE) {
+	ESCX_InvokeDescriptor d; ESCX_ProcessStatus fs; ESCX_Event normalized; if ((m == (ESCX_StateMachine*)0) || (event == (const ESCX_Event*)0) || (invoke_id >= m->invoke_count) || (m->invoke_instances[invoke_id].active == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (event->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT; normalized = *event; normalized.origin_type = ESCX_EVENT_ORIGIN_INVOKE; normalized.invoke_id = invoke_id; ReadInvokeDescriptor(m, invoke_id, &d); fs = ExecuteInvokeFinalizeEvent(m, &d, &normalized); if (fs != ESCX_STATUS_PROCESSED) {
+		SetNeutralCurrentEvent(m); return fs;
+	} if (ESCX_EventQueuePushEx(&m->internal_queue, normalized.name_id, normalized.type, normalized.origin_type, normalized.invoke_id, normalized.send_id, normalized.data) == ESCX_FALSE) {
+		SetNeutralCurrentEvent(m); return ESCX_STATUS_QUEUE_FULL;
+	} if (m->processing == ESCX_FALSE) {
 		ESCX_ProcessStatus result; m->processing = ESCX_TRUE; result = Stabilize(m); m->processing = ESCX_FALSE; if ((result == ESCX_STATUS_PROCESSED) && (m->finish_pending != ESCX_FALSE))FinishInterpreter(m); return result;
 	}SetNeutralCurrentEvent(m); return ESCX_STATUS_PROCESSED;
 }
