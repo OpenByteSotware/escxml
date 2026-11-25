@@ -440,6 +440,22 @@ static ESCX_BOOL_T ExitPlanMatchesDomain(const ESCX_StateMachine* m, ESCX_UINT16
 		state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if ((state == domain) || (IsDescendantOf(m, state, domain) == ESCX_FALSE))return ESCX_FALSE;
 	}return ESCX_TRUE;
 }
+static ESCX_BOOL_T EntryPlanContainsState(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T required)
+{
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i)if (ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]) == required)return ESCX_TRUE; return ESCX_FALSE;
+}
+static ESCX_BOOL_T EntryPlanMatchesTargets(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T domain, const ESCX_TransitionDomainMap* map, const ESCX_TransitionDomainDescriptor* d)
+{
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i, j; ESCX_BYTE_T count, state, target, depth; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) {
+		state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if ((state == domain) || (IsDescendantOf(m, state, domain) == ESCX_FALSE))return ESCX_FALSE;
+	}
+	for (j = 0U; j < d->target_count; ++j) {
+		target = ESCX_ROM_READ_U8(&map->targets[d->first_target + j]); state = target; depth = 0U; while (state != domain) {
+			if ((state == ESCX_NO_STATE) || (EntryPlanContainsState(m, pid, state) == ESCX_FALSE))return ESCX_FALSE; state = Parent(m, state); if (++depth > ESCX_MAX_HIERARCHY_DEPTH)return ESCX_FALSE;
+		}
+	}
+	return ESCX_TRUE;
+}
 ESCX_ProcessStatus ESCX_StateMachineConfigureTransitionDomainMap(ESCX_StateMachine* m, const ESCX_TransitionDomainMap* map)
 {
 	ESCX_UINT16_T i, j; ESCX_BYTE_T declared, source, target, expected_type, expected_domain; ESCX_TransitionDomainDescriptor d; if ((m == (ESCX_StateMachine*)0) || (map == (const ESCX_TransitionDomainMap*)0) || (map->transitions == (const ESCX_TransitionDomainDescriptor*)0) || (map->targets == (const ESCX_BYTE_T*)0) || (m->running != ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (map->transition_count != m->definition->transition_count)return ESCX_STATUS_INVALID_ARGUMENT; for (i = 0U; i < map->transition_count; ++i) {
@@ -453,7 +469,7 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureTransitionDomainMap(ESCX_StateMachi
 					expected_type = ESCX_TRANSITION_EXTERNAL; break;
 				}
 			}
-		}expected_domain = (expected_type == ESCX_TRANSITION_INTERNAL) ? source : LeastCommonCompoundAncestor(m, source, map, &d); if ((d.effective_type != expected_type) || (d.domain_state != expected_domain) || (expected_domain == ESCX_NO_STATE))return ESCX_STATUS_INVALID_ARGUMENT; if (ExitPlanMatchesDomain(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].exit_plan), expected_domain) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
+		}expected_domain = (expected_type == ESCX_TRANSITION_INTERNAL) ? source : LeastCommonCompoundAncestor(m, source, map, &d); if ((d.effective_type != expected_type) || (d.domain_state != expected_domain) || (expected_domain == ESCX_NO_STATE))return ESCX_STATUS_INVALID_ARGUMENT; if (ExitPlanMatchesDomain(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].exit_plan), expected_domain) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT; if (EntryPlanMatchesTargets(m, ESCX_ROM_READ_U16(&m->definition->transitions[i].entry_plan), expected_domain, map, &d) == ESCX_FALSE)return ESCX_STATUS_INVALID_ARGUMENT;
 	}m->transition_domain_map = map; return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineValidateTransitionDomains(const ESCX_StateMachine* m)
