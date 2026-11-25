@@ -137,3 +137,8 @@ The repository now includes `conformance/W3C_IRP_MANIFEST.csv` as a machine-read
 ########### Stage 51: exact generated transition-domain metadata
 
 Optional `ESCX_TransitionDomainMap` metadata records each transition's generated target range, effective transition type and computed transition domain. Configuration validates target IDs, legal internal-transition eligibility, external normalization required by W3C assertions 506/533, and the least common compound ancestor required by assertion 504. Generated exit plans must contain only proper descendants of the validated domain. The runtime loop still executes precomputed exit and entry plans directly; target and LCCA work occurs only during generation and optional startup validation.
+
+
+############ Stage 52: W3C cancel idempotence
+
+Generated `<cancel>` executable content is now idempotent when its send ID has no pending delayed send. `ESCX_StateMachineCancelSend()` retains `ESCX_STATUS_SEND_NOT_FOUND` as a useful host API diagnostic, while `ESCX_StateMachineExecuteContent()` treats that result as successful completion of the SCXML `<cancel>` instruction and does not enqueue `error.execution`. Actual timer-cancellation failures still report `error.execution` and stop the executable block. The operation remains bounded by `ESCX_MAX_DELAYED_SENDS`, a compile-time fixed capacity independent of total state-machine size.

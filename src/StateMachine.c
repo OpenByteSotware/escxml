@@ -1315,7 +1315,10 @@ ESCX_ProcessStatus ESCX_StateMachineExecuteContent(ESCX_StateMachine* m, const E
 			if (step.targeted_send_request == (const ESCX_TargetedSendRequest*)0)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_INVALID_ARGUMENT); result = ESCX_StateMachineSendTargetedRequest(m, step.targeted_send_request);
 		}
 		else if (step.kind == ESCX_EXECUTABLE_CANCEL) {
-			result = ESCX_StateMachineCancelSend(m, step.send_id); if (result != ESCX_STATUS_PROCESSED)result = ReportErrorInternal(m, ESCX_ERROR_EXECUTION, result);
+			result = ESCX_StateMachineCancelSend(m, step.send_id);
+			/* W3C <cancel> is idempotent when no pending send has this ID. */
+			if (result == ESCX_STATUS_SEND_NOT_FOUND)result = ESCX_STATUS_PROCESSED;
+			else if (result != ESCX_STATUS_PROCESSED)result = ReportErrorInternal(m, ESCX_ERROR_EXECUTION, result);
 		}
 		else return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_INVALID_ARGUMENT);
 		if (result != ESCX_STATUS_PROCESSED)return result;
