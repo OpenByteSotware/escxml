@@ -16,6 +16,7 @@ extern "C" {
 #define ESCX_NO_TRANSITION ESCX_INVALID_INDEX
 #define ESCX_NO_PLAN ESCX_INVALID_INDEX
 	typedef signed long ESCX_TimerId;
+	typedef struct ESCX_DelayedSendToken { ESCX_BYTE_T slot; ESCX_UINT16_T generation; } ESCX_DelayedSendToken;
 #define ESCX_INVALID_TIMER_ID ((ESCX_TimerId)-1L)
 #define ESCX_NO_HISTORY_SLOT ((ESCX_BYTE_T)255U)
 #define ESCX_NO_INVOKE ((ESCX_BYTE_T)255U)
@@ -35,7 +36,7 @@ extern "C" {
 	typedef int (*ESCX_StatusStateFunction)(struct ESCX_StateMachine*, void*);
 	typedef int (*ESCX_DoneDataFunction)(struct ESCX_StateMachine*, void**);
 	typedef int (*ESCX_SelectorFunction)(struct ESCX_StateMachine*, void*, ESCX_UINT16_T*);
-	typedef ESCX_TimerId(*ESCX_StartTimerFunction)(struct ESCX_StateMachine*, unsigned long, void*);
+	typedef ESCX_TimerId(*ESCX_StartTimerFunction)(struct ESCX_StateMachine*, unsigned long, ESCX_DelayedSendToken, void*);
 	typedef ESCX_BOOL_T(*ESCX_CancelTimerFunction)(struct ESCX_StateMachine*, ESCX_TimerId, void*);
 	typedef int (*ESCX_InvokeStartFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
 	typedef int (*ESCX_InvokeInitializeFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
@@ -161,7 +162,7 @@ extern "C" {
 	};
 	typedef struct ESCX_DelayedSend
 	{
-		ESCX_BOOL_T active; ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
+		ESCX_BOOL_T active; ESCX_UINT16_T generation; ESCX_BYTE_T event_id; ESCX_BYTE_T target; ESCX_BYTE_T target_id;
 		ESCX_UINT16_T send_id; ESCX_TimerId timer_id; ESCX_BYTE_T event_type; ESCX_BYTE_T origin_type; ESCX_BYTE_T invoke_id; void* event_data;
 		ESCX_BOOL_T uses_target_descriptor; ESCX_SendTargetDescriptor target_descriptor;
 	} ESCX_DelayedSend;
@@ -290,7 +291,7 @@ extern "C" {
 	ESCX_ProcessStatus ESCX_StateMachineValidateTransitionDomains(const ESCX_StateMachine*);
 	ESCX_ProcessStatus ESCX_StateMachineConfigureTransitionDomainMap(ESCX_StateMachine*, const ESCX_TransitionDomainMap*);
 	ESCX_BOOL_T ESCX_StateMachineIsDataInitialized(const ESCX_StateMachine*, ESCX_BYTE_T);
-	ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine*, ESCX_TimerId);
+	ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine*, ESCX_DelayedSendToken, ESCX_TimerId);
 	ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine*, ESCX_StartTimerFunction, ESCX_CancelTimerFunction, void*);
 	ESCX_BOOL_T ESCX_StateMachineIsInState(const ESCX_StateMachine*, ESCX_BYTE_T);
 	ESCX_BOOL_T ESCX_StateMachineIsFinished(const ESCX_StateMachine*);

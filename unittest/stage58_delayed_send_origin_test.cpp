@@ -13,7 +13,7 @@ namespace
     {
         ESCX_TimerId next;
     };
-    ESCX_TimerId StartTimer(ESCX_StateMachine*, unsigned long, void* context)
+    ESCX_TimerId StartTimer(ESCX_StateMachine*, unsigned long, ESCX_DelayedSendToken, void* context)
     {
         Timer* timer = static_cast<Timer*>(context);
         return timer->next++;
@@ -69,7 +69,7 @@ TEST(DelayedSendOrigin, TargetedDeliveryUsesSCXMLOriginNotTimerOrigin)
     ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineConfigureTimers(&machine,StartTimer,0,&timer));
     ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineStart(&machine));
     ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineSendTargetedRequest(&machine,&request));
-    ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineTimerExpired(&machine,30));
+    ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineTimerExpired(&machine, ESCX_DelayedSendToken{0U,machine.delayed_sends[0].generation}, 30));
     ASSERT_EQ(1,data.calls);
     EXPECT_EQ(ESCX_EVENT_TYPE_EXTERNAL,data.seen.type);
     EXPECT_EQ(ESCX_EVENT_ORIGIN_SCXML,data.seen.origin_type);

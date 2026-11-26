@@ -10,7 +10,7 @@ namespace
 	}; struct T
 	{
 		ESCX_TimerId next;
-	}; ESCX_TimerId Start(ESCX_StateMachine*, unsigned long, void* c)
+	}; ESCX_TimerId Start(ESCX_StateMachine*, unsigned long, ESCX_DelayedSendToken, void* c)
 	{
 		return static_cast<T*>(c)->next++;
 	}ESCX_BOOL_T Cancel(ESCX_StateMachine*, ESCX_TimerId, void*)
@@ -47,7 +47,7 @@ TEST(DelayedIOTargets, PreservesTargetAndEventMetadataUntilExpiry)
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureTimers(&m, Start, Cancel, &timer)); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&m)); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineSendTargetedRequest(&m, &q)); 
-	EXPECT_EQ(0, d.calls); ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineTimerExpired(&m, 50));
+	EXPECT_EQ(0, d.calls); ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineTimerExpired(&m, ESCX_DelayedSendToken{0U,m.delayed_sends[0].generation}, 50));
 	ASSERT_EQ(1, d.calls); EXPECT_EQ(77, d.target.target_id); EXPECT_EQ(1, d.event.name_id); 
 	EXPECT_EQ(ESCX_EVENT_ORIGIN_SCXML, d.event.origin_type); EXPECT_EQ(3, d.event.invoke_id); 
 	EXPECT_EQ(91, d.event.send_id); EXPECT_EQ(&payload, d.event.data);
@@ -66,6 +66,6 @@ TEST(DelayedIOTargets, CancelBySendIdPreventsDelivery)
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&m)); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineSendTargetedRequest(&m, &q)); 
 	EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineCancelSend(&m, 12)); 
-	EXPECT_EQ(ESCX_STATUS_IGNORED, ESCX_StateMachineTimerExpired(&m, 80)); 
+	EXPECT_EQ(ESCX_STATUS_IGNORED, ESCX_StateMachineTimerExpired(&m, ESCX_DelayedSendToken{0U,m.delayed_sends[0].generation}, 80)); 
 	EXPECT_EQ(0, d.calls);
 }

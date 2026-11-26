@@ -217,8 +217,8 @@ static ESCX_ProcessStatus StartPendingInvokes(ESCX_StateMachine* m)
 {
 	ESCX_BYTE_T i; ESCX_InvokeDescriptor d; ESCX_InvokeInitializeFunction initialize; ESCX_InvokeToken token; int status; for (i = 0U; i < m->invoke_count; ++i) {
 		if (m->pending_invokes[i] == ESCX_FALSE)continue; m->pending_invokes[i] = ESCX_FALSE; ReadInvokeDescriptor(m, i, &d); if ((d.owner_state == ESCX_NO_STATE) || (IsActive(m, d.owner_state) == ESCX_FALSE))continue; if (m->invoke_instances[i].active != ESCX_FALSE)continue; ++m->invoke_instances[i].generation; if (m->invoke_instances[i].generation == 0U)++m->invoke_instances[i].generation; token.descriptor_index = i; token.generation = m->invoke_instances[i].generation; initialize = ReadInvokeInitialize(&d.initialize); if (initialize != (ESCX_InvokeInitializeFunction)0) {
-			status = initialize(m, d.child_storage, token); if (status != (int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status;
-		}if (d.start == (ESCX_InvokeStartFunction)0)return ESCX_STATUS_INVALID_ARGUMENT; status = d.start(m, d.child_storage, token); if (status != (int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status; m->invoke_instances[i].active = ESCX_TRUE;
+			status = initialize(m, d.child_storage, token); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status);
+		}if (d.start == (ESCX_InvokeStartFunction)0)return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_ARGUMENT); status = d.start(m, d.child_storage, token); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, (ESCX_ProcessStatus)status); m->invoke_instances[i].active = ESCX_TRUE;
 	}return ESCX_STATUS_PROCESSED;
 }
 static ESCX_ProcessStatus CancelInvokeInstance(ESCX_StateMachine* m, ESCX_BYTE_T index)
@@ -311,7 +311,7 @@ void ESCX_StateMachineInit(ESCX_StateMachine* m, const ESCX_StateMachineDefiniti
 #if ESCX_ENABLE_DELAYED_SENDS
 	{
 		ESCX_BYTE_T di; for (di = 0U; di < ESCX_MAX_DELAYED_SENDS; ++di) {
-			m->delayed_sends[di].active = ESCX_FALSE; m->delayed_sends[di].timer_id = ESCX_INVALID_TIMER_ID; m->delayed_sends[di].uses_target_descriptor = ESCX_FALSE;
+			m->delayed_sends[di].active = ESCX_FALSE; m->delayed_sends[di].generation = 0U; m->delayed_sends[di].timer_id = ESCX_INVALID_TIMER_ID; m->delayed_sends[di].uses_target_descriptor = ESCX_FALSE;
 		}
 	}
 #endif
@@ -1160,7 +1160,7 @@ static ESCX_ProcessStatus Stabilize(ESCX_StateMachine* m)
 				return ESCX_STATUS_MICROSTEP_LIMIT;
 			}
 			continue;
-		}r = StartPendingInvokes(m); if (r != ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, r); return ESCX_STATUS_PROCESSED;
+		}r = StartPendingInvokes(m); if (r != ESCX_STATUS_PROCESSED)return r; return ESCX_STATUS_PROCESSED;
 	}
 }
 static ESCX_ProcessStatus Macrostep(ESCX_StateMachine* m, ESCX_BYTE_T e, void* d)
@@ -1293,11 +1293,12 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureTimers(ESCX_StateMachine* m, ESCX_S
 	(void)m; (void)st; (void)ct; (void)ctx; return ESCX_STATUS_IGNORED;
 #endif
 }
-ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine* m, ESCX_TimerId id)
+ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine* m, ESCX_DelayedSendToken token, ESCX_TimerId id)
 {
 #if ESCX_ENABLE_TIMERS && ESCX_ENABLE_DELAYED_SENDS
 	ESCX_BYTE_T i; ESCX_DelayedSend pending; if (m == (ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT; if (m->running == ESCX_FALSE)return ESCX_STATUS_NOT_RUNNING; if (id == ESCX_INVALID_TIMER_ID)return ESCX_STATUS_IGNORED;
-	for (i = 0U; i < ESCX_MAX_DELAYED_SENDS; ++i)if ((m->delayed_sends[i].active != ESCX_FALSE) && (m->delayed_sends[i].timer_id == id)) {
+	if ((token.slot >= ESCX_MAX_DELAYED_SENDS) || (token.generation == 0U))return ESCX_STATUS_IGNORED;
+	i = token.slot; if ((m->delayed_sends[i].active != ESCX_FALSE) && (m->delayed_sends[i].generation == token.generation) && (m->delayed_sends[i].timer_id == id)) {
 		pending = m->delayed_sends[i]; m->delayed_sends[i].active = ESCX_FALSE; m->delayed_sends[i].timer_id = ESCX_INVALID_TIMER_ID;
 		if (pending.uses_target_descriptor != ESCX_FALSE) {
 			ESCX_Event delayed_event; delayed_event.name_id = pending.event_id; delayed_event.type = pending.event_type; delayed_event.origin_type = pending.origin_type; delayed_event.invoke_id = pending.invoke_id; delayed_event.send_id = pending.send_id; delayed_event.data = pending.event_data; return ESCX_StateMachineSendToTarget(m, &pending.target_descriptor, &delayed_event);
@@ -1305,7 +1306,7 @@ ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine* m, ESCX_Time
 	}
 	return ESCX_STATUS_IGNORED;
 #else
-	(void)m; (void)id; return ESCX_STATUS_IGNORED;
+	(void)m; (void)token; (void)id; return ESCX_STATUS_IGNORED;
 #endif
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureIOProcessor(ESCX_StateMachine* m, ESCX_IOProcessorSendFunction send, void* context)
@@ -1351,7 +1352,7 @@ ESCX_ProcessStatus ESCX_StateMachineSendTargetedRequest(ESCX_StateMachine* m, co
 #if ESCX_ENABLE_DELAYED_SENDS
 	if (m->start_timer == (ESCX_StartTimerFunction)0)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_TIMER_START_FAILED);
 	for (i = 0U; i < ESCX_MAX_DELAYED_SENDS; ++i)if (m->delayed_sends[i].active == ESCX_FALSE) {
-		ESCX_TimerId id; m->delayed_sends[i].event_id = request->event.name_id; m->delayed_sends[i].target = 0U; m->delayed_sends[i].target_id = 0U; m->delayed_sends[i].send_id = request->event.send_id; m->delayed_sends[i].event_type = request->event.type; m->delayed_sends[i].origin_type = ESCX_EVENT_ORIGIN_SCXML; m->delayed_sends[i].invoke_id = request->event.invoke_id; m->delayed_sends[i].event_data = request->event.data; m->delayed_sends[i].target_descriptor = request->target; m->delayed_sends[i].uses_target_descriptor = ESCX_TRUE; m->delayed_sends[i].timer_id = ESCX_INVALID_TIMER_ID; id = m->start_timer(m, request->delay_ticks, m->timer_context); if (id == ESCX_INVALID_TIMER_ID) {
+		ESCX_TimerId id; ESCX_DelayedSendToken token; ++m->delayed_sends[i].generation; if (m->delayed_sends[i].generation == 0U)++m->delayed_sends[i].generation; token.slot = i; token.generation = m->delayed_sends[i].generation; m->delayed_sends[i].event_id = request->event.name_id; m->delayed_sends[i].target = 0U; m->delayed_sends[i].target_id = 0U; m->delayed_sends[i].send_id = request->event.send_id; m->delayed_sends[i].event_type = request->event.type; m->delayed_sends[i].origin_type = ESCX_EVENT_ORIGIN_SCXML; m->delayed_sends[i].invoke_id = request->event.invoke_id; m->delayed_sends[i].event_data = request->event.data; m->delayed_sends[i].target_descriptor = request->target; m->delayed_sends[i].uses_target_descriptor = ESCX_TRUE; m->delayed_sends[i].timer_id = ESCX_INVALID_TIMER_ID; id = m->start_timer(m, request->delay_ticks, token, m->timer_context); if (id == ESCX_INVALID_TIMER_ID) {
 			m->delayed_sends[i].uses_target_descriptor = ESCX_FALSE; return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_TIMER_START_FAILED);
 		}m->delayed_sends[i].timer_id = id; m->delayed_sends[i].active = ESCX_TRUE; return ESCX_STATUS_PROCESSED;
 	}
@@ -1391,8 +1392,8 @@ ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine* m, const ESCX
 #if ESCX_ENABLE_DELAYED_SENDS
 	if (m->start_timer == (ESCX_StartTimerFunction)0)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_TIMER_START_FAILED);
 	for (i = 0U; i < ESCX_MAX_DELAYED_SENDS; ++i)if (m->delayed_sends[i].active == ESCX_FALSE) {
-		ESCX_TimerId id; m->delayed_sends[i].event_id = request->event_id; m->delayed_sends[i].target = request->target; m->delayed_sends[i].target_id = request->target_id; m->delayed_sends[i].send_id = request->send_id; m->delayed_sends[i].event_type = ESCX_EVENT_TYPE_EXTERNAL; m->delayed_sends[i].origin_type = ESCX_EVENT_ORIGIN_SCXML; m->delayed_sends[i].invoke_id = ESCX_NO_INVOKE; m->delayed_sends[i].event_data = request->event_data; m->delayed_sends[i].uses_target_descriptor = ESCX_FALSE; m->delayed_sends[i].timer_id = ESCX_INVALID_TIMER_ID;
-		id = m->start_timer(m, request->delay_ticks, m->timer_context); if (id == ESCX_INVALID_TIMER_ID)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_TIMER_START_FAILED); m->delayed_sends[i].timer_id = id; m->delayed_sends[i].active = ESCX_TRUE; return ESCX_STATUS_PROCESSED;
+		ESCX_TimerId id; ESCX_DelayedSendToken token; ++m->delayed_sends[i].generation; if (m->delayed_sends[i].generation == 0U)++m->delayed_sends[i].generation; token.slot = i; token.generation = m->delayed_sends[i].generation; m->delayed_sends[i].event_id = request->event_id; m->delayed_sends[i].target = request->target; m->delayed_sends[i].target_id = request->target_id; m->delayed_sends[i].send_id = request->send_id; m->delayed_sends[i].event_type = ESCX_EVENT_TYPE_EXTERNAL; m->delayed_sends[i].origin_type = ESCX_EVENT_ORIGIN_SCXML; m->delayed_sends[i].invoke_id = ESCX_NO_INVOKE; m->delayed_sends[i].event_data = request->event_data; m->delayed_sends[i].uses_target_descriptor = ESCX_FALSE; m->delayed_sends[i].timer_id = ESCX_INVALID_TIMER_ID;
+		id = m->start_timer(m, request->delay_ticks, token, m->timer_context); if (id == ESCX_INVALID_TIMER_ID)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_TIMER_START_FAILED); m->delayed_sends[i].timer_id = id; m->delayed_sends[i].active = ESCX_TRUE; return ESCX_STATUS_PROCESSED;
 	}
 	return ESCX_STATUS_QUEUE_FULL;
 #else

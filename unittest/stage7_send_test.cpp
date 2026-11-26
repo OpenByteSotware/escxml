@@ -17,6 +17,7 @@ namespace escx
             ESCX_TimerId Start(
                 ESCX_StateMachine*,
                 unsigned long delay,
+                ESCX_DelayedSendToken,
                 void* ctx)
             {
                 FakeTimer* t = static_cast<FakeTimer*>(ctx);
@@ -93,7 +94,7 @@ namespace escx
 
             EXPECT_EQ(
                 ESCX_STATUS_IGNORED,
-                ESCX_StateMachineTimerExpired(&machine, 100));
+                ESCX_StateMachineTimerExpired(&machine, ESCX_DelayedSendToken{0U,machine.delayed_sends[0].generation}, 100));
         }
 
         TEST_F(
@@ -132,11 +133,11 @@ namespace escx
 
             EXPECT_EQ(
                 ESCX_STATUS_PROCESSED,
-                ESCX_StateMachineTimerExpired(&machine, 25));
+                ESCX_StateMachineTimerExpired(&machine, ESCX_DelayedSendToken{0U,machine.delayed_sends[0].generation}, 25));
 
             EXPECT_EQ(
                 ESCX_STATUS_IGNORED,
-                ESCX_StateMachineTimerExpired(&machine, 25));
+                ESCX_StateMachineTimerExpired(&machine, ESCX_DelayedSendToken{0U,machine.delayed_sends[0].generation}, 25));
         }
 
         TEST_F(

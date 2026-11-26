@@ -15,7 +15,7 @@ namespace
     {
         ESCX_TimerId next;
     };
-    ESCX_TimerId StartTimer(ESCX_StateMachine*, unsigned long, void* context)
+    ESCX_TimerId StartTimer(ESCX_StateMachine*, unsigned long, ESCX_DelayedSendToken, void* context)
     {
         Timer* timer = static_cast<Timer*>(context);
         return timer->next++;
@@ -91,7 +91,7 @@ TEST(DelayedSendSenderScope, CustomTransportDoesNotBindSenderCurrentEvent)
     ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineStart(&machine));
     ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineSendTargetedRequest(&machine,&request));
     ExpectNeutral(machine);
-    ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineTimerExpired(&machine,40));
+    ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineTimerExpired(&machine, ESCX_DelayedSendToken{0U,machine.delayed_sends[0].generation}, 40));
     ASSERT_EQ(1,data.transports);
     EXPECT_EQ(1,data.transported.name_id);
     EXPECT_EQ(ESCX_EVENT_ORIGIN_SCXML,data.transported.origin_type);
@@ -117,7 +117,7 @@ TEST(DelayedSendSenderScope, CurrentSessionDeliveryRemainsBoundAfterMacrostep)
     ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineConfigureTimers(&machine,StartTimer,0,&timer));
     ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineStart(&machine));
     ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineSendTargetedRequest(&machine,&request));
-    ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineTimerExpired(&machine,60));
+    ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineTimerExpired(&machine, ESCX_DelayedSendToken{0U,machine.delayed_sends[0].generation}, 60));
     ASSERT_EQ(1,data.actions);
     EXPECT_EQ(1,data.action_event.name_id);
     EXPECT_EQ(ESCX_EVENT_ORIGIN_SCXML,data.action_event.origin_type);
@@ -156,7 +156,7 @@ TEST(DelayedSendSenderScope, ExpiryDuringMacrostepPreservesInterruptedEvent)
     machine.processing = ESCX_TRUE;
     machine.current_event = driving.name_id;
     machine.current_event_descriptor = driving;
-    ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineTimerExpired(&machine,80));
+    ASSERT_EQ(ESCX_STATUS_PROCESSED,ESCX_StateMachineTimerExpired(&machine, ESCX_DelayedSendToken{0U,machine.delayed_sends[0].generation}, 80));
     const ESCX_Event* current = ESCX_StateMachineGetCurrentEvent(&machine);
     ASSERT_NE(nullptr,current);
     EXPECT_EQ(1,current->name_id);

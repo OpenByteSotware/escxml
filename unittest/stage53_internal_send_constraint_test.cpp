@@ -15,7 +15,7 @@ namespace
 	int Select(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
 		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}
-	ESCX_TimerId StartTimer(ESCX_StateMachine* m, unsigned long, void*)
+	ESCX_TimerId StartTimer(ESCX_StateMachine* m, unsigned long, ESCX_DelayedSendToken, void*)
 	{
 		++static_cast<Data*>(m->instance)->timer_starts;
 		return 17;

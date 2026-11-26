@@ -13,7 +13,7 @@ namespace
 		++static_cast<Data*>(m->instance)->after;
 		return ESCX_STATUS_PROCESSED;
 	}
-	ESCX_TimerId StartTimer(ESCX_StateMachine*, unsigned long, void*)
+	ESCX_TimerId StartTimer(ESCX_StateMachine*, unsigned long, ESCX_DelayedSendToken, void*)
 	{
 		return 17;
 	}
