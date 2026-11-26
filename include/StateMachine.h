@@ -254,7 +254,7 @@ extern "C" {
 		ESCX_SystemContext system_context;
 		ESCX_IOProcessorSendFunction io_processor_send; void* io_processor_context;
 		const ESCX_BYTE_T* event_parent; ESCX_BYTE_T event_parent_count; ESCX_BYTE_T wildcard_event; ESCX_BYTE_T error_execution_event; ESCX_BYTE_T error_communication_event;
-		ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_MacrostepResult last_macrostep_result; ESCX_ErrorEventData error_event_data; ESCX_ErrorEventData pending_error_event_data; ESCX_BOOL_T reporting_error; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
+		ESCX_BYTE_T last_error; ESCX_ProcessStatus last_error_status; ESCX_MacrostepResult last_macrostep_result; ESCX_ErrorEventData error_event_data; ESCX_ErrorEventData pending_error_event_data; ESCX_BOOL_T reporting_error; ESCX_BOOL_T pending_error_delivery; ESCX_BOOL_T running; ESCX_BOOL_T processing; ESCX_BOOL_T finished; ESCX_BOOL_T finish_pending;
 		ESCX_HistoryStorage* history; const ESCX_HistoryMap* history_map;
 		ESCX_BYTE_T data_binding; ESCX_BYTE_T* data_initialized_bits; ESCX_BYTE_T data_initialized_byte_count;
 		const ESCX_InvokeDescriptor* invokes; ESCX_InvokeInstance* invoke_instances; ESCX_BYTE_T invoke_count; const ESCX_InvokeMap* invoke_map; const ESCX_ExitOrder* exit_order; ESCX_BOOL_T pending_invokes[ESCX_MAX_INVOKES];
