@@ -221,26 +221,33 @@ static ESCX_ProcessStatus StartPendingInvokes(ESCX_StateMachine* m)
 		}if (d.start == (ESCX_InvokeStartFunction)0)return ESCX_STATUS_INVALID_ARGUMENT; status = d.start(m, d.child_storage, token); if (status != (int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status; m->invoke_instances[i].active = ESCX_TRUE;
 	}return ESCX_STATUS_PROCESSED;
 }
-static void CancelInvokesForState(ESCX_StateMachine* m, ESCX_BYTE_T state)
+static ESCX_ProcessStatus CancelInvokeInstance(ESCX_StateMachine* m, ESCX_BYTE_T index)
 {
-	ESCX_BYTE_T i, count; ESCX_UINT16_T first, index; ESCX_InvokeDescriptor d; if ((m->invokes == (const ESCX_InvokeDescriptor*)0) || (m->invoke_instances == (ESCX_InvokeInstance*)0))return; if (InvokeRange(m, state, &first, &count) != ESCX_FALSE) {
-		for (index = first; index < (ESCX_UINT16_T)(first + count); ++index) {
-			m->pending_invokes[index] = ESCX_FALSE; if (m->invoke_instances[index].active != ESCX_FALSE) {
-				ReadInvokeDescriptor(m, (ESCX_BYTE_T)index, &d); if (d.cancel != (ESCX_InvokeCancelFunction)0)d.cancel(m, d.child_storage, InvokeTokenFor(m, (ESCX_BYTE_T)index)); m->invoke_instances[index].active = ESCX_FALSE;
-			}
-		}return;
-	}for (i = 0U; i < m->invoke_count; ++i) {
-		ReadInvokeDescriptor(m, i, &d); if (d.owner_state == state) {
-			m->pending_invokes[i] = ESCX_FALSE; if (m->invoke_instances[i].active != ESCX_FALSE) {
-				if (d.cancel != (ESCX_InvokeCancelFunction)0)d.cancel(m, d.child_storage, InvokeTokenFor(m, i)); m->invoke_instances[i].active = ESCX_FALSE;
-			}
-		}
+	ESCX_InvokeDescriptor d; int status; ESCX_InvokeToken token;
+	if ((m->invoke_instances == (ESCX_InvokeInstance*)0) || (index >= m->invoke_count) || (m->invoke_instances[index].active == ESCX_FALSE))return ESCX_STATUS_PROCESSED;
+	token = InvokeTokenFor(m, index); ReadInvokeDescriptor(m, index, &d);
+	/* Invalidate locally before the client callback so late asynchronous events are always stale. */
+	m->invoke_instances[index].active = ESCX_FALSE;
+	if (d.cancel == (ESCX_InvokeCancelFunction)0)return ESCX_STATUS_PROCESSED;
+	status = d.cancel(m, d.child_storage, token);
+	if (status != (int)ESCX_STATUS_PROCESSED) { (void)ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, (ESCX_ProcessStatus)status); return (ESCX_ProcessStatus)status; }
+	return ESCX_STATUS_PROCESSED;
+}
+static ESCX_ProcessStatus CancelInvokesForState(ESCX_StateMachine* m, ESCX_BYTE_T state)
+{
+	ESCX_BYTE_T i, count; ESCX_UINT16_T first, index; ESCX_InvokeDescriptor d; ESCX_ProcessStatus first_failure, status;
+	first_failure = ESCX_STATUS_PROCESSED; if ((m->invokes == (const ESCX_InvokeDescriptor*)0) || (m->invoke_instances == (ESCX_InvokeInstance*)0))return first_failure;
+	if (InvokeRange(m, state, &first, &count) != ESCX_FALSE) {
+		for (index = first; index < (ESCX_UINT16_T)(first + count); ++index) { m->pending_invokes[index] = ESCX_FALSE; status = CancelInvokeInstance(m, (ESCX_BYTE_T)index); if ((first_failure == ESCX_STATUS_PROCESSED) && (status != ESCX_STATUS_PROCESSED))first_failure = status; }
+		return first_failure;
 	}
+	for (i = 0U; i < m->invoke_count; ++i) { ReadInvokeDescriptor(m, i, &d); if (d.owner_state == state) { m->pending_invokes[i] = ESCX_FALSE; status = CancelInvokeInstance(m, i); if ((first_failure == ESCX_STATUS_PROCESSED) && (status != ESCX_STATUS_PROCESSED))first_failure = status; } }
+	return first_failure;
 }
 static ESCX_ProcessStatus CallState(ESCX_StateMachine* m, ESCX_BYTE_T s, void* d, int which)
 {
 	const ESCX_StateDescriptor* x; ESCX_StateFunction legacy; ESCX_StatusStateFunction checked; int status;
-	x = &m->definition->states[s]; if (which == 1)CancelInvokesForState(m, s);
+	x = &m->definition->states[s]; if (which == 1) { ESCX_ProcessStatus cancel_status; cancel_status = CancelInvokesForState(m, s); if (cancel_status != ESCX_STATUS_PROCESSED)return cancel_status; }
 	checked = (which == 0) ? ReadStatusState(&x->on_entry_status) : ((which == 1) ? ReadStatusState(&x->on_exit_status) : ReadStatusState(&x->on_state_status));
 	if (checked != (ESCX_StatusStateFunction)0) {
 		status = checked(m, d); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status);

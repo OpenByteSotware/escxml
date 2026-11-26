@@ -39,7 +39,7 @@ extern "C" {
 	typedef ESCX_BOOL_T(*ESCX_CancelTimerFunction)(struct ESCX_StateMachine*, ESCX_TimerId, void*);
 	typedef int (*ESCX_InvokeStartFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
 	typedef int (*ESCX_InvokeInitializeFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
-	typedef void (*ESCX_InvokeCancelFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
+	typedef int (*ESCX_InvokeCancelFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
 	typedef int (*ESCX_InvokeForwardFunction)(struct ESCX_StateMachine*, void*, ESCX_BYTE_T, void*);
 	typedef int (*ESCX_InvokeForwardEventFunction)(struct ESCX_StateMachine*, void*, const struct ESCX_Event*);
 	typedef void (*ESCX_InvokeFinalizeFunction)(struct ESCX_StateMachine*, void*, ESCX_BYTE_T, void*);

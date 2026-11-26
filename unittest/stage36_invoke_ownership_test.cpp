@@ -24,10 +24,10 @@ namespace
 	{
 		static_cast<Data*>(m->instance)->log[static_cast<Data*>(m->instance)->count++] = 4; return ESCX_STATUS_PROCESSED;
 	}
-	void Cancel(ESCX_StateMachine* m, void*, ESCX_InvokeToken)
-	{
+	int Cancel(ESCX_StateMachine* m, void*, ESCX_InvokeToken) {
 		++static_cast<Data*>(m->instance)->cancels;
-	}
+	return ESCX_STATUS_PROCESSED;
+}
 	int TakeEventless(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
 		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}

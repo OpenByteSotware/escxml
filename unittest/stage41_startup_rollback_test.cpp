@@ -28,10 +28,10 @@ namespace
 	{
 		Data* d = static_cast<Data*>(m->instance); ++d->invoke_starts; return d->fail_invoke ? ESCX_STATUS_CALLBACK_FAILED : ESCX_STATUS_PROCESSED;
 	}
-	void CancelInvoke(ESCX_StateMachine* m, void*, ESCX_InvokeToken)
-	{
+	int CancelInvoke(ESCX_StateMachine* m, void*, ESCX_InvokeToken) {
 		++static_cast<Data*>(m->instance)->invoke_cancels;
-	}
+	return ESCX_STATUS_PROCESSED;
+}
 	const ESCX_StateDescriptor states[3] = { { 0 },{ 0,0,0,0,0,0,2,0,0,ESCX_STATE_COMPOUND,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN,EnterParent,ExitParent },{ 0,0,0,1,0,0,0,1,1,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN,EnterLeaf,ExitLeaf } };
 	const ESCX_BYTE_T children[1] = { 0 }; const ESCX_StatePlan plans[1] = { { 0,0 } }; const ESCX_BYTE_T plan_states[1] = { 0 }; const ESCX_Transition transitions[1] = { { ESCX_NO_PLAN,ESCX_NO_PLAN,0,ESCX_TRANSITION_TARGETLESS,0,0,0 } }; const ESCX_SelectorFunction selectors[1] = { 0 }; const ESCX_UINT16_T bases[3] = { 0 }; const ESCX_BYTE_T owners[1] = { 0 }; const ESCX_UINT16_T slots[1] = { ESCX_NO_SELECTOR }; const ESCX_StateMachineDefinition def = { states,children,transitions,plans,plan_states,selectors,bases,owners,slots,3,1,1,1,1,1,1,1,2 };
 }
