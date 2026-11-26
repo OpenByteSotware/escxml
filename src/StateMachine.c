@@ -658,13 +658,14 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ES
 	ReadInvokeDescriptor(m, token.descriptor_index, &d); 
 	done = *event; done.origin_type = ESCX_EVENT_ORIGIN_INVOKE;
 	done.invoke_id = token.descriptor_index; 
+	/* Reserve acceptance conditions before evaluating donedata or finalize. */
+	if ((done.name_id != ESCX_NO_EVENT) && (done.name_id >= m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
+	if ((done.name_id != ESCX_NO_EVENT) && (ESCX_EventQueueIsFull(&m->internal_queue) != ESCX_FALSE))return ESCX_STATUS_QUEUE_FULL;
 	payload = done.data;
 	done_data = d.done_data;
 	if ((payload == (void*)0) && (done_data != (ESCX_DoneDataFunction)0)) {
 		status = done_data(m, &payload); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status); done.data = payload;
 	}
-	if ((done.name_id != ESCX_NO_EVENT) && (done.name_id >= m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
-	if ((done.name_id != ESCX_NO_EVENT) && (ESCX_EventQueueIsFull(&m->internal_queue) != ESCX_FALSE))return ESCX_STATUS_QUEUE_FULL;
 	fs = ExecuteInvokeFinalizeEvent(m, &d, &done); if (fs != ESCX_STATUS_PROCESSED)return fs;
 	if (done.name_id == ESCX_NO_EVENT) { m->invoke_instances[token.descriptor_index].active = ESCX_FALSE; return ESCX_STATUS_PROCESSED; }
 	if (ESCX_EventQueuePushEx(&m->internal_queue, done.name_id, done.type, done.origin_type, done.invoke_id, done.send_id, done.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL;
