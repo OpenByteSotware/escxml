@@ -16,9 +16,8 @@ namespace
 			++d->nested_reports; (void)ESCX_StateMachineReportError(m, ESCX_ERROR_EXECUTION, ESCX_STATUS_CALLBACK_FAILED);
 		}
 	}
-	ESCX_UINT16_T SelectError(ESCX_StateMachine*, void*)
-	{
-		return 0;
+	int SelectError(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}
 	const ESCX_StateDescriptor states[2] = { { 0 },{ 0,0,0,0,0,0,0,0,0,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN } };
 	const ESCX_BYTE_T children[1] = { 0 }; const ESCX_StatePlan plans[1] = { { 0,0 } }; const ESCX_BYTE_T plan_states[1] = { 0 };

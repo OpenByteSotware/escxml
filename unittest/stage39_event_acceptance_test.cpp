@@ -12,9 +12,8 @@ namespace
 	{
 		++static_cast<Data*>(m->instance)->actions;
 	}
-	ESCX_UINT16_T Select(ESCX_StateMachine* m, void*)
-	{
-		return static_cast<Data*>(m->instance)->enabled ? 0 : ESCX_NO_TRANSITION;
+	int Select(ESCX_StateMachine* m, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(static_cast<Data*>(m->instance)->enabled ? 0 : ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED;
 	}
 	const ESCX_StateDescriptor states[2] = { { 0 },{ 0,0,0,0,0,0,0,0,0,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN } };
 	const ESCX_BYTE_T children[1] = { 0 }; const ESCX_StatePlan plans[1] = { { 0,0 } }; 

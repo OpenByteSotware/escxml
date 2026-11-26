@@ -20,17 +20,14 @@ namespace
 	{
 		static_cast<ConflictData*>(m->instance)->right_actions++;
 	}
-	ESCX_UINT16_T SelectAncestor(ESCX_StateMachine*, void*)
-	{
-		return 0;
+	int SelectAncestor(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}
-	ESCX_UINT16_T SelectLeft(ESCX_StateMachine*, void*)
-	{
-		return 1;
+	int SelectLeft(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(1); return ESCX_STATUS_PROCESSED;
 	}
-	ESCX_UINT16_T SelectRight(ESCX_StateMachine*, void*)
-	{
-		return 2;
+	int SelectRight(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(2); return ESCX_STATUS_PROCESSED;
 	}
 	/* root parallel(1), regions(2,4), leaves(3,5). Both descendant transitions
 	   exit their leaves. The ancestor transition exits root and therefore
@@ -51,9 +48,8 @@ namespace
 	 { 2,ESCX_NO_PLAN,RightAction,ESCX_TRANSITION_EXTERNAL,5,2,2 } };
 	/* event 1: leaf3 selects descendant; leaf5 selects descendant. The ancestor
 	   candidate is exposed by leaf3 for event 2 to validate ancestor rejection. */
-	ESCX_UINT16_T SelectLeftOrAncestor(ESCX_StateMachine*, void* data)
-	{
-		return data ? 0 : 1;
+	int SelectLeftOrAncestor(ESCX_StateMachine*, void* data, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(data ? 0 : 1); return ESCX_STATUS_PROCESSED;
 	}
 	const ESCX_SelectorFunction selectors[3] = { SelectLeftOrAncestor,SelectRight,SelectAncestor };
 	const ESCX_UINT16_T bases[6] = { 0,0,0,0,0,1 };

@@ -12,13 +12,11 @@ namespace
 	{
 		++static_cast<Data*>(m->instance)->event_actions;
 	}
-	ESCX_UINT16_T SelectAncestor(ESCX_StateMachine*, void*)
-	{
-		return 0;
+	int SelectAncestor(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}
-	ESCX_UINT16_T NoEventless(ESCX_StateMachine* m, void*)
-	{
-		++static_cast<Data*>(m->instance)->eventless_checks; return ESCX_NO_TRANSITION;
+	int NoEventless(ESCX_StateMachine* m, void*, ESCX_UINT16_T* transition_id) {
+		++static_cast<Data*>(m->instance)->eventless_checks; *transition_id = (ESCX_UINT16_T)(ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED;
 	}
 	/* event 1 is prefix parent; event 2 is child. State 1 owns selector for event 1. */
 	const ESCX_StateDescriptor states[3] = {

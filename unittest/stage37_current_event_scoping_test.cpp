@@ -8,9 +8,8 @@ namespace
 	{
 		ESCX_Event selector_event; ESCX_Event action_event; ESCX_Event error_trigger; int selected; int acted; int phase;
 	};
-	ESCX_UINT16_T SelectEventless(ESCX_StateMachine* m, void*)
-	{
-		Data* d = static_cast<Data*>(m->instance); d->selector_event = *ESCX_StateMachineGetCurrentEvent(m); ++d->selected; return d->phase == 0 ? 0 : ESCX_NO_TRANSITION;
+	int SelectEventless(ESCX_StateMachine* m, void*, ESCX_UINT16_T* transition_id) {
+		Data* d = static_cast<Data*>(m->instance); d->selector_event = *ESCX_StateMachineGetCurrentEvent(m); ++d->selected; *transition_id = (ESCX_UINT16_T)(d->phase == 0 ? 0 : ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED;
 	}
 	void EventlessAction(ESCX_StateMachine* m, void*)
 	{
@@ -40,13 +39,11 @@ namespace
 	{
 		int phase; ESCX_Event eventless_seen; ESCX_Event trigger_seen;
 	};
-	ESCX_UINT16_T SelectDriven(ESCX_StateMachine* m, void*)
-	{
-		DrivenData* d = static_cast<DrivenData*>(m->instance); if (d->phase != 1)return ESCX_NO_TRANSITION; d->eventless_seen = *ESCX_StateMachineGetCurrentEvent(m); return 1;
+	int SelectDriven(ESCX_StateMachine* m, void*, ESCX_UINT16_T* transition_id) {
+		DrivenData* d = static_cast<DrivenData*>(m->instance); if (d->phase != 1)*transition_id = (ESCX_UINT16_T)(ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED; d->eventless_seen = *ESCX_StateMachineGetCurrentEvent(m); *transition_id = (ESCX_UINT16_T)(1); return ESCX_STATUS_PROCESSED;
 	}
-	ESCX_UINT16_T SelectExternal(ESCX_StateMachine* m, void*)
-	{
-		static_cast<DrivenData*>(m->instance)->phase = 1; return 0;
+	int SelectExternal(ESCX_StateMachine* m, void*, ESCX_UINT16_T* transition_id) {
+		static_cast<DrivenData*>(m->instance)->phase = 1; *transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}
 	void CaptureError(ESCX_StateMachine* m, void*)
 	{

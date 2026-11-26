@@ -16,13 +16,11 @@ namespace
 	{
 		++static_cast<Data*>(m->instance)->right;
 	}
-	ESCX_UINT16_T SelectDeep(ESCX_StateMachine*, void*)
-	{
-		return 0;
+	int SelectDeep(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}
-	ESCX_UINT16_T SelectRight(ESCX_StateMachine*, void*)
-	{
-		return 1;
+	int SelectRight(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(1); return ESCX_STATUS_PROCESSED;
 	}
 	/* Sources 4 and 6 are in unrelated parallel branches. Source 4 is deeper,
 	   but transition 1 is earlier in document order and must win. */

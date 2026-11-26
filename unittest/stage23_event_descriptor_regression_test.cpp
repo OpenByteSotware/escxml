@@ -8,17 +8,15 @@ namespace
 	{
 		ESCX_Event seen; int count;
 	};
-	ESCX_UINT16_T NoEventless(ESCX_StateMachine*, void*)
-	{
-		return ESCX_NO_TRANSITION;
+	int NoEventless(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED;
 	}
 	void Observe(ESCX_StateMachine* m, void*)
 	{
 		Data* d = static_cast<Data*>(m->instance); d->seen = *ESCX_StateMachineGetCurrentEvent(m); ++d->count;
 	}
-	ESCX_UINT16_T SelectExternal(ESCX_StateMachine*, void*)
-	{
-		return 0;
+	int SelectExternal(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}
 	const ESCX_StateDescriptor states[2] = { { 0 },{ 0,0,0,0,0,0,0,0,0,ESCX_STATE_ATOMIC,1,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN } };
 	const ESCX_BYTE_T children[1] = { 0 }; 

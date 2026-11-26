@@ -12,9 +12,8 @@ namespace
 	{
 		++static_cast<Data*>(m->instance)->actions;
 	}
-	ESCX_UINT16_T Select(ESCX_StateMachine*, void*)
-	{
-		return 0;
+	int Select(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}
 	ESCX_TimerId StartTimer(ESCX_StateMachine* m, unsigned long, void*)
 	{

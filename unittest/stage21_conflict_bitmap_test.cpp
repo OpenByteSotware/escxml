@@ -23,14 +23,12 @@ namespace
         static_cast<Data*>(m->instance)->b++;
     }
 
-    ESCX_UINT16_T SA(ESCX_StateMachine*, void*)
-    {
-        return 0;
+    int SA(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+        *transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
     }
 
-    ESCX_UINT16_T SB(ESCX_StateMachine*, void*)
-    {
-        return 1;
+    int SB(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+        *transition_id = (ESCX_UINT16_T)(1); return ESCX_STATUS_PROCESSED;
     }
 
     const ESCX_StateDescriptor states[4] =

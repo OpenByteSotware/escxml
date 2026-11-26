@@ -8,9 +8,8 @@ namespace
 	{
 		int count;
 	};
-	ESCX_UINT16_T ObserveDone(ESCX_StateMachine* m, void*)
-	{
-		static_cast<CompletionData*>(m->instance)->count++; return ESCX_NO_TRANSITION;
+	int ObserveDone(ESCX_StateMachine* m, void*, ESCX_UINT16_T* transition_id) {
+		static_cast<CompletionData*>(m->instance)->count++; *transition_id = (ESCX_UINT16_T)(ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED;
 	}
 	const ESCX_StateDescriptor states[4] = {
 	 { 0,0,0,0,0,0,0,0,0,0,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN,0,0,0,0,0 },

@@ -1061,6 +1061,12 @@ const ESCX_Event* ESCX_StateMachineGetCurrentEvent(const ESCX_StateMachine* m)
 	if (m == (const ESCX_StateMachine*)0)return (const ESCX_Event*)0;
 	return &m->current_event_descriptor;
 }
+static ESCX_ProcessStatus EvaluateSelector(ESCX_StateMachine* m, ESCX_SelectorFunction selector, void* data, ESCX_UINT16_T* transition_id)
+{
+	int status; *transition_id = ESCX_NO_TRANSITION; status = selector(m, data, transition_id);
+	if (status != (int)ESCX_STATUS_PROCESSED) { *transition_id = ESCX_NO_TRANSITION; (void)ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status); }
+	return ESCX_STATUS_PROCESSED;
+}
 static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine* m, ESCX_BYTE_T e, void* d)
 {
 	ESCX_UINT16_T selected[ESCX_MAX_ENABLED_TRANSITIONS]; ESCX_BYTE_T selected_count = 0U, leaf, state, depth, i;
@@ -1071,7 +1077,7 @@ static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine* m, ESCX_BYTE_T e, void
 		leaf = m->active_atomic_states[i]; state = leaf; depth = 0U;
 		if (m->fast_dispatch != (const ESCX_FastDispatch*)0) {
 			selector_id = FindFastSelector(m, leaf, e); if ((selector_id != ESCX_NO_SELECTOR) && (selector_id < m->definition->selector_count)) {
-				selector = ReadSelector(&m->definition->selectors[selector_id]); if (selector == (ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT; transition_id = selector(m, d); if (transition_id != ESCX_NO_TRANSITION) {
+				selector = ReadSelector(&m->definition->selectors[selector_id]); if (selector == (ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT; status = EvaluateSelector(m, selector, d, &transition_id); if (status != ESCX_STATUS_PROCESSED)return status; if (transition_id != ESCX_NO_TRANSITION) {
 					status = AddEnabledTransition(m, selected, &selected_count, transition_id); if (status != ESCX_STATUS_PROCESSED)return status;
 				}
 			}continue;
@@ -1079,7 +1085,7 @@ static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine* m, ESCX_BYTE_T e, void
 		while (state != ESCX_NO_STATE) {
 			selector_id = FindMatchingSelector(m, state, e);
 			if ((selector_id != ESCX_NO_SELECTOR) && (selector_id < m->definition->selector_count)) {
-				selector = ReadSelector(&m->definition->selectors[selector_id]); if (selector == (ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT; transition_id = selector(m, d);
+				selector = ReadSelector(&m->definition->selectors[selector_id]); if (selector == (ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT; status = EvaluateSelector(m, selector, d, &transition_id); if (status != ESCX_STATUS_PROCESSED)return status;
 				if (transition_id != ESCX_NO_TRANSITION) {
 					status = AddEnabledTransition(m, selected, &selected_count, transition_id); if (status != ESCX_STATUS_PROCESSED)return status; break;
 				}
@@ -1109,7 +1115,7 @@ static ESCX_ProcessStatus ProcessEventless(ESCX_StateMachine* m)
 		if (selector_id == ESCX_NO_SELECTOR)continue;
 		if (selector_id >= m->definition->selector_count)return ESCX_STATUS_INVALID_ARGUMENT;
 		selector = ReadSelector(&m->definition->selectors[selector_id]); if (selector == (ESCX_SelectorFunction)0)return ESCX_STATUS_INVALID_ARGUMENT;
-		transition_id = selector(m, (void*)0); if (transition_id == ESCX_NO_TRANSITION)continue;
+		status = EvaluateSelector(m, selector, (void*)0, &transition_id); if (status != ESCX_STATUS_PROCESSED)return status; if (transition_id == ESCX_NO_TRANSITION)continue;
 		status = AddEnabledTransition(m, selected, &selected_count, transition_id); if (status != ESCX_STATUS_PROCESSED)return status;
 	}
 	return ExecuteSet(m, selected, selected_count, (void*)0);

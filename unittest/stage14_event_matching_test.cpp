@@ -20,15 +20,12 @@ namespace
 	{
 		static_cast<MatchData*>(m->instance)->wildcard++;
 	}
-	ESCX_UINT16_T SelectExact(ESCX_StateMachine*, void*)
-	{
-		return 0;
-	} ESCX_UINT16_T SelectParent(ESCX_StateMachine*, void*)
-	{
-		return 1;
-	} ESCX_UINT16_T SelectWildcard(ESCX_StateMachine*, void*)
-	{
-		return 2;
+	int SelectExact(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
+	} int SelectParent(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(1); return ESCX_STATUS_PROCESSED;
+	} int SelectWildcard(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(2); return ESCX_STATUS_PROCESSED;
 	}
 	const ESCX_StateDescriptor states[2] = { { 0,0,0,0,0,0,0,0,0,0,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN },{ 0,0,0,0,0,0,0,0,0,ESCX_STATE_ATOMIC,ESCX_NO_SELECTOR,ESCX_NO_EVENT,ESCX_NO_HISTORY_SLOT,ESCX_NO_PLAN } };
 	const ESCX_BYTE_T children[1] = { 0 }; const ESCX_StatePlan plans[1] = { { 0,0 } }; const ESCX_BYTE_T plan_states[1] = { 0 };

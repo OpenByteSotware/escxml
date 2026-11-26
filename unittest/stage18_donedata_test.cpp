@@ -26,10 +26,9 @@ namespace
         return ESCX_STATUS_PROCESSED;
     }
 
-    ESCX_UINT16_T SelectDone(
+    int SelectDone(
         ESCX_StateMachine* machine,
-        void*)
-    {
+        void*, ESCX_UINT16_T* transition_id) {
         const ESCX_Event* event =
             ESCX_StateMachineGetCurrentEvent(machine);
 
@@ -39,7 +38,7 @@ namespace
         data->seen = event->data;
         data->invoke = event->invoke_id;
 
-        return ESCX_NO_TRANSITION;
+        *transition_id = (ESCX_UINT16_T)(ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED;
     }
 
     /*

@@ -11,17 +11,15 @@ namespace
         ESCX_Event eventless_selector;
         ESCX_Event eventless_action;
     };
-    ESCX_UINT16_T SelectExternal(ESCX_StateMachine* machine, void*)
-    {
+    int SelectExternal(ESCX_StateMachine* machine, void*, ESCX_UINT16_T* transition_id) {
         static_cast<Data*>(machine->instance)->phase = 1;
-        return 0;
+        *transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
     }
-    ESCX_UINT16_T SelectEventless(ESCX_StateMachine* machine, void*)
-    {
+    int SelectEventless(ESCX_StateMachine* machine, void*, ESCX_UINT16_T* transition_id) {
         Data* data = static_cast<Data*>(machine->instance);
-        if (data->phase != 1)return ESCX_NO_TRANSITION;
+        if (data->phase != 1)*transition_id = (ESCX_UINT16_T)(ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED;
         data->eventless_selector = *ESCX_StateMachineGetCurrentEvent(machine);
-        return 1;
+        *transition_id = (ESCX_UINT16_T)(1); return ESCX_STATUS_PROCESSED;
     }
     void ExternalAction(ESCX_StateMachine* machine, void*)
     {

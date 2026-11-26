@@ -17,9 +17,8 @@ namespace
         static_cast<FastData*>(m->instance)->actions++;
     }
 
-    ESCX_UINT16_T Select(ESCX_StateMachine*, void*)
-    {
-        return 0;
+    int Select(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+        *transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
     }
 
     const ESCX_StateDescriptor states[3] =

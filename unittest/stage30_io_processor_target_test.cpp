@@ -10,9 +10,8 @@ namespace
 	}; void A(ESCX_StateMachine* m, void*)
 	{
 		++static_cast<D*>(m->instance)->actions;
-	}ESCX_UINT16_T S(ESCX_StateMachine*, void*)
-	{
-		return 0;
+	}int S(ESCX_StateMachine*, void*, ESCX_UINT16_T* transition_id) {
+		*transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;
 	}int X(ESCX_StateMachine* m, const ESCX_SendTargetDescriptor* t, const ESCX_Event*, void*)
 	{
 		D* d = static_cast<D*>(m->instance); ++d->transports; d->target = t->target_id;

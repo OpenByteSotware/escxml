@@ -34,7 +34,7 @@ extern "C" {
 	typedef int (*ESCX_StatusActionFunction)(struct ESCX_StateMachine*, void*);
 	typedef int (*ESCX_StatusStateFunction)(struct ESCX_StateMachine*, void*);
 	typedef int (*ESCX_DoneDataFunction)(struct ESCX_StateMachine*, void**);
-	typedef ESCX_UINT16_T(*ESCX_SelectorFunction)(struct ESCX_StateMachine*, void*);
+	typedef int (*ESCX_SelectorFunction)(struct ESCX_StateMachine*, void*, ESCX_UINT16_T*);
 	typedef ESCX_TimerId(*ESCX_StartTimerFunction)(struct ESCX_StateMachine*, unsigned long, void*);
 	typedef ESCX_BOOL_T(*ESCX_CancelTimerFunction)(struct ESCX_StateMachine*, ESCX_TimerId, void*);
 	typedef int (*ESCX_InvokeStartFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
@@ -382,12 +382,12 @@ extern "C" {
 #define ESCX_TRANSITION_META(exit_plan,entry_plan,action,type,source,depth,order) ESCX_TRANSITION_EX(exit_plan,entry_plan,action,type,source,depth,order)
 #define ESCX_TARGETLESS_TRANSITION(action) ESCX_TRANSITION_EX(ESCX_NO_PLAN,ESCX_NO_PLAN,action,ESCX_TRANSITION_TARGETLESS,ESCX_NO_STATE,0U,0U)
 #define ESCX_TRANSITIONS_END() };
-#define ESCX_SELECTOR_BEGIN(n) static ESCX_UINT16_T n(ESCX_StateMachine *machine,void *event_data){
+#define ESCX_SELECTOR_BEGIN(n) static int n(ESCX_StateMachine *machine,void *event_data,ESCX_UINT16_T *transition_id){
 #define ESCX_SELECTOR_SWITCH(x) switch(x){
-#define ESCX_SELECTOR_CASE(v,t) case(v):return(ESCX_UINT16_T)(t);
-#define ESCX_SELECTOR_DEFAULT(t) default:return(ESCX_UINT16_T)(t);
+#define ESCX_SELECTOR_CASE(v,t) case(v):*transition_id=(ESCX_UINT16_T)(t);return(int)ESCX_STATUS_PROCESSED;
+#define ESCX_SELECTOR_DEFAULT(t) default:*transition_id=(ESCX_UINT16_T)(t);return(int)ESCX_STATUS_PROCESSED;
 #define ESCX_SELECTOR_SWITCH_END() }
-#define ESCX_SELECTOR_RETURN(t) return(ESCX_UINT16_T)(t);
+#define ESCX_SELECTOR_RETURN(t) do{*transition_id=(ESCX_UINT16_T)(t);return(int)ESCX_STATUS_PROCESSED;}while(0)
 #define ESCX_SELECTOR_END() }
 #define ESCX_SELECTORS_BEGIN(n) static const ESCX_SelectorFunction n##_selectors[] ESCX_ROM={
 #define ESCX_SELECTOR(f) f,
