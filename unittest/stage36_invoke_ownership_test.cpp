@@ -8,23 +8,23 @@ namespace
 	{
 		int log[8]; int count; int cancels;
 	};
-	int Init0(ESCX_StateMachine* m, void*, ESCX_BYTE_T)
+	int Init0(ESCX_StateMachine* m, void*, ESCX_InvokeToken token)
 	{
 		static_cast<Data*>(m->instance)->log[static_cast<Data*>(m->instance)->count++] = 1; return ESCX_STATUS_PROCESSED;
 	}
-	int Start0(ESCX_StateMachine* m, void*)
+	int Start0(ESCX_StateMachine* m, void*, ESCX_InvokeToken)
 	{
 		static_cast<Data*>(m->instance)->log[static_cast<Data*>(m->instance)->count++] = 2; return ESCX_STATUS_PROCESSED;
 	}
-	int Init1(ESCX_StateMachine* m, void*, ESCX_BYTE_T)
+	int Init1(ESCX_StateMachine* m, void*, ESCX_InvokeToken token)
 	{
 		static_cast<Data*>(m->instance)->log[static_cast<Data*>(m->instance)->count++] = 3; return ESCX_STATUS_PROCESSED;
 	}
-	int Start1(ESCX_StateMachine* m, void*)
+	int Start1(ESCX_StateMachine* m, void*, ESCX_InvokeToken)
 	{
 		static_cast<Data*>(m->instance)->log[static_cast<Data*>(m->instance)->count++] = 4; return ESCX_STATUS_PROCESSED;
 	}
-	void Cancel(ESCX_StateMachine* m, void*)
+	void Cancel(ESCX_StateMachine* m, void*, ESCX_InvokeToken)
 	{
 		++static_cast<Data*>(m->instance)->cancels;
 	}

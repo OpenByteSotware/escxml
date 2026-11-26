@@ -26,6 +26,8 @@ extern "C" {
 	struct ESCX_StateMachine;
 	struct ESCX_InvokeDescriptor;
 	struct ESCX_Event;
+	typedef struct ESCX_InvokeToken { ESCX_BYTE_T descriptor_index; ESCX_UINT16_T generation; } ESCX_InvokeToken;
+#define ESCX_INVALID_INVOKE_TOKEN { ESCX_NO_INVOKE, 0U }
 
 	typedef void (*ESCX_ActionFunction)(struct ESCX_StateMachine*, void*);
 	typedef void (*ESCX_StateFunction)(struct ESCX_StateMachine*, void*);
@@ -35,9 +37,9 @@ extern "C" {
 	typedef ESCX_UINT16_T(*ESCX_SelectorFunction)(struct ESCX_StateMachine*, void*);
 	typedef ESCX_TimerId(*ESCX_StartTimerFunction)(struct ESCX_StateMachine*, unsigned long, void*);
 	typedef ESCX_BOOL_T(*ESCX_CancelTimerFunction)(struct ESCX_StateMachine*, ESCX_TimerId, void*);
-	typedef int (*ESCX_InvokeStartFunction)(struct ESCX_StateMachine*, void*);
-	typedef int (*ESCX_InvokeInitializeFunction)(struct ESCX_StateMachine*, void*, ESCX_BYTE_T);
-	typedef void (*ESCX_InvokeCancelFunction)(struct ESCX_StateMachine*, void*);
+	typedef int (*ESCX_InvokeStartFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
+	typedef int (*ESCX_InvokeInitializeFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
+	typedef void (*ESCX_InvokeCancelFunction)(struct ESCX_StateMachine*, void*, ESCX_InvokeToken);
 	typedef int (*ESCX_InvokeForwardFunction)(struct ESCX_StateMachine*, void*, ESCX_BYTE_T, void*);
 	typedef int (*ESCX_InvokeForwardEventFunction)(struct ESCX_StateMachine*, void*, const struct ESCX_Event*);
 	typedef void (*ESCX_InvokeFinalizeFunction)(struct ESCX_StateMachine*, void*, ESCX_BYTE_T, void*);
@@ -190,7 +192,7 @@ extern "C" {
 	} ESCX_InvokeDescriptor;
 	typedef struct ESCX_InvokeInstance
 	{
-		ESCX_BOOL_T active;
+		ESCX_BOOL_T active; ESCX_UINT16_T generation;
 	} ESCX_InvokeInstance;
 	typedef struct ESCX_InvokeMap
 	{
@@ -255,7 +257,7 @@ extern "C" {
 		ESCX_HistoryStorage* history; const ESCX_HistoryMap* history_map;
 		ESCX_BYTE_T data_binding; ESCX_BYTE_T* data_initialized_bits; ESCX_BYTE_T data_initialized_byte_count;
 		const ESCX_InvokeDescriptor* invokes; ESCX_InvokeInstance* invoke_instances; ESCX_BYTE_T invoke_count; const ESCX_InvokeMap* invoke_map; const ESCX_ExitOrder* exit_order; ESCX_BOOL_T pending_invokes[ESCX_MAX_INVOKES];
-		struct ESCX_StateMachine* parent_machine; ESCX_BYTE_T parent_invoke_id;
+		struct ESCX_StateMachine* parent_machine; ESCX_InvokeToken parent_invoke_token;
 #if ESCX_ENABLE_DELAYED_SENDS
 		ESCX_DelayedSend delayed_sends[ESCX_MAX_DELAYED_SENDS];
 #endif
@@ -296,11 +298,11 @@ extern "C" {
 	ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine*, const ESCX_InvokeDescriptor*, ESCX_InvokeInstance*, ESCX_BYTE_T);
 	ESCX_ProcessStatus ESCX_StateMachineConfigureInvokeMap(ESCX_StateMachine*, const ESCX_InvokeMap*);
 	ESCX_ProcessStatus ESCX_StateMachineConfigureExitOrder(ESCX_StateMachine*, const ESCX_ExitOrder*);
-	ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine*, ESCX_BYTE_T, void*);
-	ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine*, ESCX_BYTE_T, const ESCX_Event*);
-	ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine*, ESCX_BYTE_T, ESCX_BYTE_T, void*);
-	ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine*, ESCX_BYTE_T, const ESCX_Event*);
-	ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine*, ESCX_StateMachine*, ESCX_BYTE_T);
+	ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine*, ESCX_InvokeToken, void*);
+	ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine*, ESCX_InvokeToken, const ESCX_Event*);
+	ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine*, ESCX_InvokeToken, ESCX_BYTE_T, void*);
+	ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine*, ESCX_InvokeToken, const ESCX_Event*);
+	ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine*, ESCX_StateMachine*, ESCX_InvokeToken);
 	ESCX_ProcessStatus ESCX_StateMachineSendRequest(ESCX_StateMachine*, const ESCX_SendRequest*);
 	ESCX_ProcessStatus ESCX_StateMachineConfigureIOProcessor(ESCX_StateMachine*, ESCX_IOProcessorSendFunction, void*);
 	ESCX_ProcessStatus ESCX_StateMachineSendToTarget(ESCX_StateMachine*, const ESCX_SendTargetDescriptor*, const ESCX_Event*);

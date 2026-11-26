@@ -24,11 +24,11 @@ namespace
 	{
 		++static_cast<Data*>(m->instance)->exits; return ESCX_STATUS_PROCESSED;
 	}
-	int StartInvoke(ESCX_StateMachine* m, void*)
+	int StartInvoke(ESCX_StateMachine* m, void*, ESCX_InvokeToken)
 	{
 		Data* d = static_cast<Data*>(m->instance); ++d->invoke_starts; return d->fail_invoke ? ESCX_STATUS_CALLBACK_FAILED : ESCX_STATUS_PROCESSED;
 	}
-	void CancelInvoke(ESCX_StateMachine* m, void*)
+	void CancelInvoke(ESCX_StateMachine* m, void*, ESCX_InvokeToken)
 	{
 		++static_cast<Data*>(m->instance)->invoke_cancels;
 	}

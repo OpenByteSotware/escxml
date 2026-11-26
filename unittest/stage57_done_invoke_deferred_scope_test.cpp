@@ -2,13 +2,15 @@
 extern "C" {
 #include "StateMachine.h"
 }
+
+static ESCX_InvokeToken InvokeTokenFor(const ESCX_StateMachine* m, ESCX_BYTE_T i) { ESCX_InvokeToken t = { i,m->invoke_instances[i].generation }; return t; }
 namespace
 {
 	struct Data
 	{
 		ESCX_Event finalized; ESCX_Event transitioned; int finalizes; int transitions;
 	};
-	int Start(ESCX_StateMachine*, void*)
+	int Start(ESCX_StateMachine*, void*, ESCX_InvokeToken)
 	{
 		return ESCX_STATUS_PROCESSED;
 	}
@@ -56,7 +58,7 @@ TEST(DoneInvokeDeferredScope, CompletionDuringMacrostepQueuesDescriptorAndRestor
 	int prior_payload = 23;
 	m.current_event_descriptor = ESCX_Event{ 1,ESCX_EVENT_TYPE_EXTERNAL,ESCX_EVENT_ORIGIN_PLATFORM,ESCX_NO_INVOKE,44,&prior_payload };
 	m.current_event = 1;
-	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineCompleteInvokeEvent(&m, 0, &done));
+	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineCompleteInvokeEvent(&m, InvokeTokenFor(&m, 0), &done));
 	EXPECT_FALSE(instance[0].active); ASSERT_EQ(1, data.finalizes); 
 	EXPECT_EQ(0, data.transitions); ASSERT_EQ(1, m.internal_queue.count);
 	EXPECT_EQ(ESCX_EVENT_ORIGIN_INVOKE, data.finalized.origin_type);

@@ -2,13 +2,15 @@
 extern "C" {
 #include "StateMachine.h"
 }
+
+static ESCX_InvokeToken InvokeTokenFor(const ESCX_StateMachine* m, ESCX_BYTE_T i) { ESCX_InvokeToken t = { i,m->invoke_instances[i].generation }; return t; }
 namespace
 {
 	struct Data
 	{
 		ESCX_Event seen; int finalize_count; int transition_count;
 	};
-	int Start(ESCX_StateMachine*, void*)
+	int Start(ESCX_StateMachine*, void*, ESCX_InvokeToken)
 	{
 		return ESCX_STATUS_PROCESSED;
 	}
@@ -43,7 +45,7 @@ TEST(InvokeFinalize, ChildEventIsCurrentDuringFinalizeAndTransition)
 	ESCX_StateMachineInit(&m, &def, &data, bits, 1, 0, 0, 0); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureInvokes(&m, &invoke, instances, 1));
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&m)); ASSERT_TRUE(instances[0].active);
-	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineReceiveInvokeEvent(&m, 0, 1, &payload)); 
+	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineReceiveInvokeEvent(&m, InvokeTokenFor(&m, 0), 1, &payload)); 
 	EXPECT_EQ(1, data.finalize_count);
 	EXPECT_EQ(1, data.transition_count);
 	EXPECT_EQ(ESCX_EVENT_ORIGIN_INVOKE, data.seen.origin_type); 
@@ -58,6 +60,6 @@ TEST(InvokeFinalize, LateEventAfterCancellationIsRejected)
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureInvokes(&m, &invoke, instances, 1)); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&m));
 	ESCX_StateMachineStop(&m);
-	EXPECT_EQ(ESCX_STATUS_INVALID_ARGUMENT, ESCX_StateMachineReceiveInvokeEvent(&m, 0, 1, 0));
+	EXPECT_EQ(ESCX_STATUS_INVALID_ARGUMENT, ESCX_StateMachineReceiveInvokeEvent(&m, InvokeTokenFor(&m, 0), 1, 0));
 	EXPECT_EQ(0, data.finalize_count);
 }

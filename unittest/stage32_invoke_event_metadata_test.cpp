@@ -2,12 +2,14 @@
 extern "C" {
 #include "StateMachine.h"
 }
+
+static ESCX_InvokeToken InvokeTokenFor(const ESCX_StateMachine* m, ESCX_BYTE_T i) { ESCX_InvokeToken t = { i,m->invoke_instances[i].generation }; return t; }
 namespace
 {
 	struct D
 	{
 		ESCX_Event f; ESCX_Event r; int nf; int nr;
-	}; int Start(ESCX_StateMachine*, void*)
+	}; int Start(ESCX_StateMachine*, void*, ESCX_InvokeToken)
 	{
 		return ESCX_STATUS_PROCESSED;
 	}int Forward(ESCX_StateMachine* m, void*, const ESCX_Event* e)
@@ -46,7 +48,7 @@ TEST(InvokeEventMetadata, ChildDeliveryPreservesDescriptor)
 	ESCX_StateMachineInit(&m, &df, &d, b, 1, 0, 0, 0); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureInvokes(&m, &in, ii, 1)); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&m)); 
-	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineReceiveInvokeEventDescriptor(&m, 0, &e)); 
+	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineReceiveInvokeEventDescriptor(&m, InvokeTokenFor(&m, 0), &e)); 
 	EXPECT_EQ(1, d.nr); 
 	EXPECT_EQ(ESCX_EVENT_ORIGIN_INVOKE, d.r.origin_type); 
 	EXPECT_EQ(0, d.r.invoke_id); 

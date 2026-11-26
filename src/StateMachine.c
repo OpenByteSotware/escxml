@@ -192,6 +192,15 @@ static void ReadInvokeDescriptor(const ESCX_StateMachine* m, ESCX_BYTE_T index, 
 {
 	(void)ESCX_ROM_COPY(out, &m->invokes[index], sizeof(*out));
 }
+static ESCX_InvokeToken InvokeTokenFor(const ESCX_StateMachine* m, ESCX_BYTE_T index)
+{
+	ESCX_InvokeToken token; token.descriptor_index = index; token.generation = m->invoke_instances[index].generation; return token;
+}
+static ESCX_BOOL_T InvokeTokenMatches(const ESCX_StateMachine* m, ESCX_InvokeToken token)
+{
+	if ((m == (const ESCX_StateMachine*)0) || (m->invoke_instances == (ESCX_InvokeInstance*)0) || (token.descriptor_index >= m->invoke_count))return ESCX_FALSE;
+	return ((m->invoke_instances[token.descriptor_index].active != ESCX_FALSE) && (m->invoke_instances[token.descriptor_index].generation == token.generation)) ? ESCX_TRUE : ESCX_FALSE;
+}
 static ESCX_BOOL_T InvokeRange(const ESCX_StateMachine* m, ESCX_BYTE_T state, ESCX_UINT16_T* first, ESCX_BYTE_T* count)
 {
 	if (m->invoke_map == (const ESCX_InvokeMap*)0)return ESCX_FALSE; if ((ESCX_UINT16_T)state >= m->invoke_map->state_count_total)return ESCX_FALSE; *first = ESCX_ROM_READ_U16(&m->invoke_map->state_first[state]); *count = ESCX_ROM_READ_U8(&m->invoke_map->state_count[state]); return ESCX_TRUE;
@@ -206,10 +215,10 @@ static void ScheduleInvokesForState(ESCX_StateMachine* m, ESCX_BYTE_T state)
 }
 static ESCX_ProcessStatus StartPendingInvokes(ESCX_StateMachine* m)
 {
-	ESCX_BYTE_T i; ESCX_InvokeDescriptor d; ESCX_InvokeInitializeFunction initialize; int status; for (i = 0U; i < m->invoke_count; ++i) {
-		if (m->pending_invokes[i] == ESCX_FALSE)continue; m->pending_invokes[i] = ESCX_FALSE; ReadInvokeDescriptor(m, i, &d); if ((d.owner_state == ESCX_NO_STATE) || (IsActive(m, d.owner_state) == ESCX_FALSE))continue; if (m->invoke_instances[i].active != ESCX_FALSE)continue; initialize = ReadInvokeInitialize(&d.initialize); if (initialize != (ESCX_InvokeInitializeFunction)0) {
-			status = initialize(m, d.child_storage, i); if (status != (int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status;
-		}if (d.start == (ESCX_InvokeStartFunction)0)return ESCX_STATUS_INVALID_ARGUMENT; status = d.start(m, d.child_storage); if (status != (int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status; m->invoke_instances[i].active = ESCX_TRUE;
+	ESCX_BYTE_T i; ESCX_InvokeDescriptor d; ESCX_InvokeInitializeFunction initialize; ESCX_InvokeToken token; int status; for (i = 0U; i < m->invoke_count; ++i) {
+		if (m->pending_invokes[i] == ESCX_FALSE)continue; m->pending_invokes[i] = ESCX_FALSE; ReadInvokeDescriptor(m, i, &d); if ((d.owner_state == ESCX_NO_STATE) || (IsActive(m, d.owner_state) == ESCX_FALSE))continue; if (m->invoke_instances[i].active != ESCX_FALSE)continue; ++m->invoke_instances[i].generation; if (m->invoke_instances[i].generation == 0U)++m->invoke_instances[i].generation; token.descriptor_index = i; token.generation = m->invoke_instances[i].generation; initialize = ReadInvokeInitialize(&d.initialize); if (initialize != (ESCX_InvokeInitializeFunction)0) {
+			status = initialize(m, d.child_storage, token); if (status != (int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status;
+		}if (d.start == (ESCX_InvokeStartFunction)0)return ESCX_STATUS_INVALID_ARGUMENT; status = d.start(m, d.child_storage, token); if (status != (int)ESCX_STATUS_PROCESSED)return (ESCX_ProcessStatus)status; m->invoke_instances[i].active = ESCX_TRUE;
 	}return ESCX_STATUS_PROCESSED;
 }
 static void CancelInvokesForState(ESCX_StateMachine* m, ESCX_BYTE_T state)
@@ -217,13 +226,13 @@ static void CancelInvokesForState(ESCX_StateMachine* m, ESCX_BYTE_T state)
 	ESCX_BYTE_T i, count; ESCX_UINT16_T first, index; ESCX_InvokeDescriptor d; if ((m->invokes == (const ESCX_InvokeDescriptor*)0) || (m->invoke_instances == (ESCX_InvokeInstance*)0))return; if (InvokeRange(m, state, &first, &count) != ESCX_FALSE) {
 		for (index = first; index < (ESCX_UINT16_T)(first + count); ++index) {
 			m->pending_invokes[index] = ESCX_FALSE; if (m->invoke_instances[index].active != ESCX_FALSE) {
-				ReadInvokeDescriptor(m, (ESCX_BYTE_T)index, &d); if (d.cancel != (ESCX_InvokeCancelFunction)0)d.cancel(m, d.child_storage); m->invoke_instances[index].active = ESCX_FALSE;
+				ReadInvokeDescriptor(m, (ESCX_BYTE_T)index, &d); if (d.cancel != (ESCX_InvokeCancelFunction)0)d.cancel(m, d.child_storage, InvokeTokenFor(m, (ESCX_BYTE_T)index)); m->invoke_instances[index].active = ESCX_FALSE;
 			}
 		}return;
 	}for (i = 0U; i < m->invoke_count; ++i) {
 		ReadInvokeDescriptor(m, i, &d); if (d.owner_state == state) {
 			m->pending_invokes[i] = ESCX_FALSE; if (m->invoke_instances[i].active != ESCX_FALSE) {
-				if (d.cancel != (ESCX_InvokeCancelFunction)0)d.cancel(m, d.child_storage); m->invoke_instances[i].active = ESCX_FALSE;
+				if (d.cancel != (ESCX_InvokeCancelFunction)0)d.cancel(m, d.child_storage, InvokeTokenFor(m, i)); m->invoke_instances[i].active = ESCX_FALSE;
 			}
 		}
 	}
@@ -291,7 +300,7 @@ void ESCX_StateMachineInit(ESCX_StateMachine* m, const ESCX_StateMachineDefiniti
 	}m->definition = d; m->instance = i; m->history = h; m->history_map = (const ESCX_HistoryMap*)0; m->data_binding = ESCX_DATA_BINDING_EARLY; m->data_initialized_bits = (ESCX_BYTE_T*)0; m->data_initialized_byte_count = 0U; m->invokes = (const ESCX_InvokeDescriptor*)0; m->invoke_instances = (ESCX_InvokeInstance*)0; m->invoke_count = 0U; m->invoke_map = (const ESCX_InvokeMap*)0; m->exit_order = (const ESCX_ExitOrder*)0;
 	{
 		ESCX_BYTE_T pi; for (pi = 0U; pi < ESCX_MAX_INVOKES; ++pi)m->pending_invokes[pi] = ESCX_FALSE;
-	}m->parent_machine = (ESCX_StateMachine*)0; m->parent_invoke_id = ESCX_NO_INVOKE;
+	}m->parent_machine = (ESCX_StateMachine*)0; m->parent_invoke_token.descriptor_index = ESCX_NO_INVOKE; m->parent_invoke_token.generation = 0U;
 #if ESCX_ENABLE_DELAYED_SENDS
 	{
 		ESCX_BYTE_T di; for (di = 0U; di < ESCX_MAX_DELAYED_SENDS; ++di) {
@@ -587,7 +596,7 @@ static ESCX_ProcessStatus InitializeAllData(ESCX_StateMachine* m)
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine* m, const ESCX_InvokeDescriptor* d, ESCX_InvokeInstance* i, ESCX_BYTE_T count)
 {
-	ESCX_BYTE_T n; if ((m == (ESCX_StateMachine*)0) || (count > ESCX_MAX_INVOKES) || (m->running != ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if ((count != 0U) && ((d == (const ESCX_InvokeDescriptor*)0) || (i == (ESCX_InvokeInstance*)0)))return ESCX_STATUS_INVALID_ARGUMENT; m->invokes = d; m->invoke_instances = i; m->invoke_count = count; for (n = 0U; n < ESCX_MAX_INVOKES; ++n)m->pending_invokes[n] = ESCX_FALSE; for (n = 0U; n < count; ++n)i[n].active = ESCX_FALSE; return ESCX_STATUS_PROCESSED;
+	ESCX_BYTE_T n; if ((m == (ESCX_StateMachine*)0) || (count > ESCX_MAX_INVOKES) || (m->running != ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if ((count != 0U) && ((d == (const ESCX_InvokeDescriptor*)0) || (i == (ESCX_InvokeInstance*)0)))return ESCX_STATUS_INVALID_ARGUMENT; m->invokes = d; m->invoke_instances = i; m->invoke_count = count; for (n = 0U; n < ESCX_MAX_INVOKES; ++n)m->pending_invokes[n] = ESCX_FALSE; for (n = 0U; n < count; ++n) { i[n].active = ESCX_FALSE; i[n].generation = 0U; } return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokeMap(ESCX_StateMachine* m, const ESCX_InvokeMap* map)
 {
@@ -620,7 +629,7 @@ static ESCX_ProcessStatus ExecuteInvokeFinalizeEvent(ESCX_StateMachine* m, const
 	else { if (d->finalize != (ESCX_InvokeFinalizeFunction)0)d->finalize(m, d->child_storage, event->name_id, event->data); m->current_event_descriptor = saved_event; m->current_event = saved_event_id; }
 	return ESCX_STATUS_PROCESSED;
 }
-ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, const ESCX_Event* event)
+ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ESCX_InvokeToken token, const ESCX_Event* event)
 {
 	ESCX_InvokeDescriptor d; 
 	ESCX_DoneDataFunction done_data; 
@@ -628,12 +637,12 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ES
 	ESCX_Event done;
 	void* payload; 
 	int status;
-	if ((m == (ESCX_StateMachine*)0) || (event == (const ESCX_Event*)0) || (invoke_id >= m->invoke_count) || (m->invoke_instances[invoke_id].active == ESCX_FALSE))
+	if ((event == (const ESCX_Event*)0) || (InvokeTokenMatches(m, token) == ESCX_FALSE))
 		return ESCX_STATUS_INVALID_ARGUMENT;
-	ReadInvokeDescriptor(m, invoke_id, &d); 
-	m->invoke_instances[invoke_id].active = ESCX_FALSE; 
+	ReadInvokeDescriptor(m, token.descriptor_index, &d); 
+	m->invoke_instances[token.descriptor_index].active = ESCX_FALSE; 
 	done = *event; done.origin_type = ESCX_EVENT_ORIGIN_INVOKE;
-	done.invoke_id = invoke_id; 
+	done.invoke_id = token.descriptor_index; 
 	payload = done.data;
 	done_data = d.done_data;
 	if ((payload == (void*)0) && (done_data != (ESCX_DoneDataFunction)0)) {
@@ -650,20 +659,20 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ES
 	return ESCX_STATUS_PROCESSED;
 }
 
-ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, void* data)
+ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine* m, ESCX_InvokeToken token, void* data)
 {
-	ESCX_InvokeDescriptor d; ESCX_Event event; if ((m == (ESCX_StateMachine*)0) || (invoke_id >= m->invoke_count))return ESCX_STATUS_INVALID_ARGUMENT; ReadInvokeDescriptor(m, invoke_id, &d); event.name_id = d.done_event; event.type = ESCX_EVENT_TYPE_INTERNAL; event.origin_type = ESCX_EVENT_ORIGIN_INVOKE; event.invoke_id = invoke_id; event.send_id = ESCX_NO_SEND_ID; event.data = data; return ESCX_StateMachineCompleteInvokeEvent(m, invoke_id, &event);
+	ESCX_InvokeDescriptor d; ESCX_Event event; if ((m == (ESCX_StateMachine*)0) || (token.descriptor_index >= m->invoke_count))return ESCX_STATUS_INVALID_ARGUMENT; ReadInvokeDescriptor(m, token.descriptor_index, &d); event.name_id = d.done_event; event.type = ESCX_EVENT_TYPE_INTERNAL; event.origin_type = ESCX_EVENT_ORIGIN_INVOKE; event.invoke_id = token.descriptor_index; event.send_id = ESCX_NO_SEND_ID; event.data = data; return ESCX_StateMachineCompleteInvokeEvent(m, token, &event);
 }
 
-ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, const ESCX_Event* event)
+ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine* m, ESCX_InvokeToken token, const ESCX_Event* event)
 {
-	ESCX_InvokeDescriptor d; ESCX_ProcessStatus fs; ESCX_Event normalized; if ((m == (ESCX_StateMachine*)0) || (event == (const ESCX_Event*)0) || (invoke_id >= m->invoke_count) || (m->invoke_instances[invoke_id].active == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (event->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT; normalized = *event; normalized.origin_type = ESCX_EVENT_ORIGIN_INVOKE; normalized.invoke_id = invoke_id; ReadInvokeDescriptor(m, invoke_id, &d); fs = ExecuteInvokeFinalizeEvent(m, &d, &normalized); if (fs != ESCX_STATUS_PROCESSED)return fs; if (ESCX_EventQueuePushEx(&m->internal_queue, normalized.name_id, normalized.type, normalized.origin_type, normalized.invoke_id, normalized.send_id, normalized.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL; if (m->processing == ESCX_FALSE) {
+	ESCX_InvokeDescriptor d; ESCX_ProcessStatus fs; ESCX_Event normalized; if ((event == (const ESCX_Event*)0) || (InvokeTokenMatches(m, token) == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (event->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT; normalized = *event; normalized.origin_type = ESCX_EVENT_ORIGIN_INVOKE; normalized.invoke_id = token.descriptor_index; ReadInvokeDescriptor(m, token.descriptor_index, &d); fs = ExecuteInvokeFinalizeEvent(m, &d, &normalized); if (fs != ESCX_STATUS_PROCESSED)return fs; if (ESCX_EventQueuePushEx(&m->internal_queue, normalized.name_id, normalized.type, normalized.origin_type, normalized.invoke_id, normalized.send_id, normalized.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL; if (m->processing == ESCX_FALSE) {
 		ESCX_ProcessStatus result; m->processing = ESCX_TRUE; result = Stabilize(m); m->processing = ESCX_FALSE; if ((result == ESCX_STATUS_PROCESSED) && (m->finish_pending != ESCX_FALSE))FinishInterpreter(m); return result;
 	}return ESCX_STATUS_PROCESSED;
 }
-ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine* m, ESCX_BYTE_T invoke_id, ESCX_BYTE_T event_id, void* data)
+ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEvent(ESCX_StateMachine* m, ESCX_InvokeToken token, ESCX_BYTE_T event_id, void* data)
 {
-	ESCX_Event event; event.name_id = event_id; event.type = ESCX_EVENT_TYPE_EXTERNAL; event.origin_type = ESCX_EVENT_ORIGIN_INVOKE; event.invoke_id = invoke_id; event.send_id = ESCX_NO_SEND_ID; event.data = data; return ESCX_StateMachineReceiveInvokeEventDescriptor(m, invoke_id, &event);
+	ESCX_Event event; event.name_id = event_id; event.type = ESCX_EVENT_TYPE_EXTERNAL; event.origin_type = ESCX_EVENT_ORIGIN_INVOKE; event.invoke_id = token.descriptor_index; event.send_id = ESCX_NO_SEND_ID; event.data = data; return ESCX_StateMachineReceiveInvokeEventDescriptor(m, token, &event);
 }
 static ESCX_ProcessStatus ForwardExternalToInvokes(ESCX_StateMachine* m, ESCX_BYTE_T event_id, void* data)
 {
@@ -1287,7 +1296,7 @@ ESCX_ProcessStatus ESCX_StateMachineSendToTarget(ESCX_StateMachine* m, const ESC
 		return ESCX_StateMachineRaiseEvent(m, &internal_event);
 	}if (t->processor == ESCX_IO_PROCESSOR_SCXML) {
 		if (t->target_type == ESCX_IO_TARGET_CURRENT_SESSION)return ESCX_StateMachineSendEvent(m, e); if (t->target_type == ESCX_IO_TARGET_PARENT_SESSION) {
-			if ((m->parent_machine == (ESCX_StateMachine*)0) || (m->parent_invoke_id == ESCX_NO_INVOKE))return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_NO_PARENT); return ESCX_StateMachineReceiveInvokeEventDescriptor(m->parent_machine, m->parent_invoke_id, e);
+			if ((m->parent_machine == (ESCX_StateMachine*)0) || (m->parent_invoke_token.descriptor_index == ESCX_NO_INVOKE))return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_NO_PARENT); return ESCX_StateMachineReceiveInvokeEventDescriptor(m->parent_machine, m->parent_invoke_token, e);
 		}if (t->target_type == ESCX_IO_TARGET_INVOKE) {
 			if ((t->target_id >= m->invoke_count) || (m->invoke_instances == (ESCX_InvokeInstance*)0) || (m->invoke_instances[t->target_id].active == ESCX_FALSE))return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_TARGET); ReadInvokeDescriptor(m, (ESCX_BYTE_T)t->target_id, &d); if (d.forward_event != (ESCX_InvokeForwardEventFunction)0)status = d.forward_event(m, d.child_storage, e); else if (d.forward != (ESCX_InvokeForwardFunction)0)status = d.forward(m, d.child_storage, e->name_id, e->data); else return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_TARGET); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, (ESCX_ProcessStatus)status); return ESCX_STATUS_PROCESSED;
 		}if (t->target_type == ESCX_IO_TARGET_SESSION) {
@@ -1297,11 +1306,11 @@ ESCX_ProcessStatus ESCX_StateMachineSendToTarget(ESCX_StateMachine* m, const ESC
 		}return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_TARGET);
 	}if (m->io_processor_send == (ESCX_IOProcessorSendFunction)0)return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_TARGET); status = m->io_processor_send(m, t, e, m->io_processor_context); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, (ESCX_ProcessStatus)status); return ESCX_STATUS_PROCESSED;
 }
-ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine* m, ESCX_StateMachine* parent, ESCX_BYTE_T parent_invoke_id)
+ESCX_ProcessStatus ESCX_StateMachineConfigureParent(ESCX_StateMachine* m, ESCX_StateMachine* parent, ESCX_InvokeToken parent_invoke_token)
 {
 	if (m == (ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT;
-	if ((parent == (ESCX_StateMachine*)0) && (parent_invoke_id != ESCX_NO_INVOKE))return ESCX_STATUS_INVALID_ARGUMENT;
-	m->parent_machine = parent; m->parent_invoke_id = parent_invoke_id; return ESCX_STATUS_PROCESSED;
+	if ((parent == (ESCX_StateMachine*)0) && (parent_invoke_token.descriptor_index != ESCX_NO_INVOKE))return ESCX_STATUS_INVALID_ARGUMENT;
+	m->parent_machine = parent; m->parent_invoke_token = parent_invoke_token; return ESCX_STATUS_PROCESSED;
 }
 
 ESCX_ProcessStatus ESCX_StateMachineSendTargetedRequest(ESCX_StateMachine* m, const ESCX_TargetedSendRequest* request)
@@ -1333,8 +1342,8 @@ static ESCX_ProcessStatus DispatchSend(ESCX_StateMachine* m, ESCX_BYTE_T event_i
 	if (target == ESCX_SEND_TARGET_INTERNAL)return ESCX_StateMachineRaiseInternal(m, event_id, data);
 	if (target == ESCX_SEND_TARGET_SELF)return ESCX_StateMachineSend(m, event_id, data);
 	if (target == ESCX_SEND_TARGET_PARENT) {
-		if ((m->parent_machine == (ESCX_StateMachine*)0) || (m->parent_invoke_id == ESCX_NO_INVOKE))return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_NO_PARENT);
-		return ESCX_StateMachineReceiveInvokeEvent(m->parent_machine, m->parent_invoke_id, event_id, data);
+		if ((m->parent_machine == (ESCX_StateMachine*)0) || (m->parent_invoke_token.descriptor_index == ESCX_NO_INVOKE))return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_NO_PARENT);
+		return ESCX_StateMachineReceiveInvokeEvent(m->parent_machine, m->parent_invoke_token, event_id, data);
 	}
 	if (target == ESCX_SEND_TARGET_INVOKE) {
 		if ((target_id >= m->invoke_count) || (m->invoke_instances == (ESCX_InvokeInstance*)0) || (m->invoke_instances[target_id].active == ESCX_FALSE))return ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, ESCX_STATUS_INVALID_TARGET);

@@ -8,17 +8,17 @@ namespace
 	{
 		int log[4]; int count; ESCX_BYTE_T invoke_id;
 	};
-	int Initialize(ESCX_StateMachine* m, void*, ESCX_BYTE_T id)
+	int Initialize(ESCX_StateMachine* m, void*, ESCX_InvokeToken token)
 	{
-		Data* d = static_cast<Data*>(m->instance); d->log[d->count++] = 1; d->invoke_id = id;
+		Data* d = static_cast<Data*>(m->instance); d->log[d->count++] = 1; d->invoke_id = token.descriptor_index;
 		return ESCX_STATUS_PROCESSED;
 	}
-	int Start(ESCX_StateMachine* m, void*)
+	int Start(ESCX_StateMachine* m, void*, ESCX_InvokeToken)
 	{
 		static_cast<Data*>(m->instance)->log[static_cast<Data*>(m->instance)->count++] = 2; 
 		return ESCX_STATUS_PROCESSED;
 	}
-	int FailInitialize(ESCX_StateMachine*, void*, ESCX_BYTE_T)
+	int FailInitialize(ESCX_StateMachine*, void*, ESCX_InvokeToken token)
 	{
 		return ESCX_STATUS_CALLBACK_FAILED;
 	}

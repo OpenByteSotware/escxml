@@ -2,12 +2,14 @@
 extern "C" {
 #include "StateMachine.h"
 }
+
+static ESCX_InvokeToken InvokeTokenFor(const ESCX_StateMachine* m, ESCX_BYTE_T i) { ESCX_InvokeToken t = { i,m->invoke_instances[i].generation }; return t; }
 namespace
 {
 	struct D
 	{
 		ESCX_Event finalized; ESCX_Event transitioned; ESCX_Event forwarded; int finalizes; int transitions; int forwards;
-	}; int Start(ESCX_StateMachine*, void*)
+	}; int Start(ESCX_StateMachine*, void*, ESCX_InvokeToken)
 	{
 		return ESCX_STATUS_PROCESSED;
 	}int Finalize(ESCX_StateMachine* m, void*, const ESCX_Event* e)
@@ -33,7 +35,7 @@ TEST(InvokeCompletionMetadata, FinalizeAndDoneTransitionSeeCompleteDescriptor)
 	ESCX_StateMachineInit(&m, &df, &d, b, 1, 0, 0, 0); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineConfigureInvokes(&m, &in, ii, 1)); 
 	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineStart(&m)); 
-	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineCompleteInvokeEvent(&m, 0, &done)); 
+	ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineCompleteInvokeEvent(&m, InvokeTokenFor(&m, 0), &done)); 
 	ASSERT_EQ(1, d.finalizes); 
 	ASSERT_EQ(1, d.transitions); 
 	EXPECT_EQ(66, d.finalized.send_id); 

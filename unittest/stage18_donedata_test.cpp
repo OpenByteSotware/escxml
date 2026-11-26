@@ -240,7 +240,8 @@ namespace
 
     int InvokeStart(
         ESCX_StateMachine*,
-        void*)
+        void*,
+        ESCX_InvokeToken)
     {
         return ESCX_STATUS_PROCESSED;
     }
@@ -357,7 +358,7 @@ TEST(DoneData, DoneInvokeCarriesPayloadAndInvokeId)
         ESCX_STATUS_PROCESSED,
         ESCX_StateMachineCompleteInvoke(
             &machine,
-            0,
+            ESCX_InvokeToken{ 0U,invoke_instances[0].generation },
             nullptr
         )
     );

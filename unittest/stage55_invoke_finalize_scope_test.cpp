@@ -2,13 +2,15 @@
 extern "C" {
 #include "StateMachine.h"
 }
+
+static ESCX_InvokeToken InvokeTokenFor(const ESCX_StateMachine* m, ESCX_BYTE_T i) { ESCX_InvokeToken t = { i,m->invoke_instances[i].generation }; return t; }
 namespace
 {
 	struct Data
 	{
 		ESCX_Event finalized; int count;
 	};
-	int Start(ESCX_StateMachine*, void*)
+	int Start(ESCX_StateMachine*, void*, ESCX_InvokeToken)
 	{
 		return ESCX_STATUS_PROCESSED;
 	}
@@ -44,7 +46,7 @@ TEST(InvokeFinalizeScope, CompletionWithoutDoneEventLeavesNeutralCurrentEvent)
 	ESCX_StateMachine m = {}; ESCX_BYTE_T active[1] = {}; ESCX_InvokeInstance instance[1] = {};
 	Data data = {}; int payload = 4;
 	Init(&m, active, instance, &data, ESCX_NO_EVENT);
-	EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineCompleteInvoke(&m, 0, &payload));
+	EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineCompleteInvoke(&m, InvokeTokenFor(&m, 0), &payload));
 	ASSERT_EQ(1, data.count); EXPECT_EQ(&payload, data.finalized.data);
 	const ESCX_Event* current = ESCX_StateMachineGetCurrentEvent(&m); ASSERT_NE(nullptr, current);
 	EXPECT_EQ(ESCX_NO_EVENT, current->name_id); EXPECT_EQ(ESCX_EVENT_ORIGIN_NONE, current->origin_type); EXPECT_EQ(nullptr, current->data);
@@ -58,7 +60,7 @@ TEST(InvokeFinalizeScope, QueueFullFailureDoesNotLeakFinalizeEvent)
 	m.processing = ESCX_TRUE;
 	for (ESCX_BYTE_T i = 0; i < ESCX_QUEUE_SIZE; ++i) 
 		ASSERT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineRaiseEvent(&m, &filler));
-	EXPECT_EQ(ESCX_STATUS_QUEUE_FULL, ESCX_StateMachineCompleteInvoke(&m, 0, 0));
+	EXPECT_EQ(ESCX_STATUS_QUEUE_FULL, ESCX_StateMachineCompleteInvoke(&m, InvokeTokenFor(&m, 0), 0));
 	m.processing = ESCX_FALSE;
 	const ESCX_Event* current = ESCX_StateMachineGetCurrentEvent(&m); 
 	ASSERT_NE(nullptr, current);
@@ -68,7 +70,7 @@ TEST(InvokeFinalizeScope, EventQueuedDuringExistingMacrostepRestoresPriorScope)
 {
 	ESCX_StateMachine m = {}; ESCX_BYTE_T active[1] = {}; ESCX_InvokeInstance instance[1] = {}; Data data = {}; int payload = 7;
 	Init(&m, active, instance, &data, 1); m.processing = ESCX_TRUE;
-	EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineReceiveInvokeEvent(&m, 0, 1, &payload));
+	EXPECT_EQ(ESCX_STATUS_PROCESSED, ESCX_StateMachineReceiveInvokeEvent(&m, InvokeTokenFor(&m, 0), 1, &payload));
 	EXPECT_EQ(1, m.internal_queue.count); EXPECT_EQ(1, data.count);
 	const ESCX_Event* current = ESCX_StateMachineGetCurrentEvent(&m); ASSERT_NE(nullptr, current);
 	EXPECT_EQ(ESCX_NO_EVENT, current->name_id); EXPECT_EQ(ESCX_EVENT_ORIGIN_NONE, current->origin_type);
