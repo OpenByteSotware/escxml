@@ -656,7 +656,6 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ES
 	if ((event == (const ESCX_Event*)0) || (InvokeTokenMatches(m, token) == ESCX_FALSE))
 		return ESCX_STATUS_INVALID_ARGUMENT;
 	ReadInvokeDescriptor(m, token.descriptor_index, &d); 
-	m->invoke_instances[token.descriptor_index].active = ESCX_FALSE; 
 	done = *event; done.origin_type = ESCX_EVENT_ORIGIN_INVOKE;
 	done.invoke_id = token.descriptor_index; 
 	payload = done.data;
@@ -664,10 +663,13 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ES
 	if ((payload == (void*)0) && (done_data != (ESCX_DoneDataFunction)0)) {
 		status = done_data(m, &payload); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status); done.data = payload;
 	}
+	if ((done.name_id != ESCX_NO_EVENT) && (done.name_id >= m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
+	if ((done.name_id != ESCX_NO_EVENT) && (ESCX_EventQueueIsFull(&m->internal_queue) != ESCX_FALSE))return ESCX_STATUS_QUEUE_FULL;
 	fs = ExecuteInvokeFinalizeEvent(m, &d, &done); if (fs != ESCX_STATUS_PROCESSED)return fs;
-	if (done.name_id == ESCX_NO_EVENT)return ESCX_STATUS_PROCESSED;
-	if (done.name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;
+	if (done.name_id == ESCX_NO_EVENT) { m->invoke_instances[token.descriptor_index].active = ESCX_FALSE; return ESCX_STATUS_PROCESSED; }
 	if (ESCX_EventQueuePushEx(&m->internal_queue, done.name_id, done.type, done.origin_type, done.invoke_id, done.send_id, done.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL;
+	/* Commit completion only after payload evaluation, finalize, and event publication succeed. */
+	m->invoke_instances[token.descriptor_index].active = ESCX_FALSE;
 	if (m->processing == ESCX_FALSE) {
 		ESCX_ProcessStatus result; m->processing = ESCX_TRUE; result = Stabilize(m); m->processing = ESCX_FALSE; if ((result == ESCX_STATUS_PROCESSED) && (m->finish_pending != ESCX_FALSE))FinishInterpreter(m); return result;
 	}
