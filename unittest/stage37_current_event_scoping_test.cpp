@@ -40,7 +40,7 @@ namespace
 		int phase; ESCX_Event eventless_seen; ESCX_Event trigger_seen;
 	};
 	int SelectDriven(ESCX_StateMachine* m, void*, ESCX_UINT16_T* transition_id) {
-		DrivenData* d = static_cast<DrivenData*>(m->instance); if (d->phase != 1)*transition_id = (ESCX_UINT16_T)(ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED; d->eventless_seen = *ESCX_StateMachineGetCurrentEvent(m); *transition_id = (ESCX_UINT16_T)(1); return ESCX_STATUS_PROCESSED;
+		DrivenData* d = static_cast<DrivenData*>(m->instance); if (d->phase != 1) { *transition_id = ESCX_NO_TRANSITION; return ESCX_STATUS_PROCESSED; } d->eventless_seen = *ESCX_StateMachineGetCurrentEvent(m); *transition_id = 1U; return ESCX_STATUS_PROCESSED;
 	}
 	int SelectExternal(ESCX_StateMachine* m, void*, ESCX_UINT16_T* transition_id) {
 		static_cast<DrivenData*>(m->instance)->phase = 1; *transition_id = (ESCX_UINT16_T)(0); return ESCX_STATUS_PROCESSED;

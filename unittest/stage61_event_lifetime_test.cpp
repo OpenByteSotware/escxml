@@ -17,7 +17,7 @@ namespace
     }
     int SelectEventless(ESCX_StateMachine* machine, void*, ESCX_UINT16_T* transition_id) {
         Data* data = static_cast<Data*>(machine->instance);
-        if (data->phase != 1)*transition_id = (ESCX_UINT16_T)(ESCX_NO_TRANSITION); return ESCX_STATUS_PROCESSED;
+        if (data->phase != 1) { *transition_id = ESCX_NO_TRANSITION; return ESCX_STATUS_PROCESSED; }
         data->eventless_selector = *ESCX_StateMachineGetCurrentEvent(machine);
         *transition_id = (ESCX_UINT16_T)(1); return ESCX_STATUS_PROCESSED;
     }
