@@ -600,11 +600,20 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine* m, const
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokeMap(ESCX_StateMachine* m, const ESCX_InvokeMap* map)
 {
-	ESCX_BYTE_T state, count, i; ESCX_UINT16_T first, index; ESCX_InvokeDescriptor d; if ((m == (ESCX_StateMachine*)0) || (map == (const ESCX_InvokeMap*)0) || (map->state_first == (const ESCX_UINT16_T*)0) || (map->state_count == (const ESCX_BYTE_T*)0) || (m->running != ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if ((map->state_count_total < m->definition->state_count) || (map->invoke_count_total != m->invoke_count))return ESCX_STATUS_INVALID_ARGUMENT; for (state = 0U; (ESCX_UINT16_T)state < m->definition->state_count; ++state) {
-		first = ESCX_ROM_READ_U16(&map->state_first[state]); count = ESCX_ROM_READ_U8(&map->state_count[state]); if ((ESCX_UINT16_T)(first + count) > m->invoke_count)return ESCX_STATUS_INVALID_ARGUMENT; for (i = 0U; i < count; ++i) {
-			index = (ESCX_UINT16_T)(first + i); ReadInvokeDescriptor(m, (ESCX_BYTE_T)index, &d); if (d.owner_state != state)return ESCX_STATUS_INVALID_ARGUMENT;
+	ESCX_BYTE_T state, count, i, seen[ESCX_MAX_INVOKES]; ESCX_UINT16_T first, index; ESCX_InvokeDescriptor d;
+	if ((m == (ESCX_StateMachine*)0) || (map == (const ESCX_InvokeMap*)0) || (map->state_first == (const ESCX_UINT16_T*)0) || (map->state_count == (const ESCX_BYTE_T*)0) || (m->running != ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT;
+	if ((map->state_count_total < m->definition->state_count) || (map->invoke_count_total != m->invoke_count))return ESCX_STATUS_INVALID_ARGUMENT;
+	memset(seen, 0, sizeof(seen));
+	for (state = 0U; (ESCX_UINT16_T)state < m->definition->state_count; ++state) {
+		first = ESCX_ROM_READ_U16(&map->state_first[state]); count = ESCX_ROM_READ_U8(&map->state_count[state]);
+		if ((ESCX_UINT16_T)(first + count) > m->invoke_count)return ESCX_STATUS_INVALID_ARGUMENT;
+		for (i = 0U; i < count; ++i) {
+			index = (ESCX_UINT16_T)(first + i); if (seen[index] != 0U)return ESCX_STATUS_INVALID_ARGUMENT; seen[index] = 1U;
+			ReadInvokeDescriptor(m, (ESCX_BYTE_T)index, &d); if (d.owner_state != state)return ESCX_STATUS_INVALID_ARGUMENT;
 		}
-	}m->invoke_map = map; return ESCX_STATUS_PROCESSED;
+	}
+	for (i = 0U; i < m->invoke_count; ++i) { ReadInvokeDescriptor(m, i, &d); if ((d.owner_state == ESCX_NO_STATE) || ((ESCX_UINT16_T)d.owner_state >= m->definition->state_count) || (seen[i] == 0U))return ESCX_STATUS_INVALID_ARGUMENT; }
+	m->invoke_map = map; return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureExitOrder(ESCX_StateMachine* m, const ESCX_ExitOrder* order)
 {
