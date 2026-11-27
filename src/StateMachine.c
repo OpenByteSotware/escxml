@@ -230,7 +230,9 @@ static ESCX_ProcessStatus CancelInvokeInstance(ESCX_StateMachine* m, ESCX_BYTE_T
 	m->invoke_instances[index].active = ESCX_FALSE;
 	if (d.cancel == (ESCX_InvokeCancelFunction)0)return ESCX_STATUS_PROCESSED;
 	status = d.cancel(m, d.child_storage, token);
-	if (status != (int)ESCX_STATUS_PROCESSED) { (void)ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, (ESCX_ProcessStatus)status); return (ESCX_ProcessStatus)status; }
+	if (status != (int)ESCX_STATUS_PROCESSED) {
+		(void)ReportErrorInternal(m, ESCX_ERROR_COMMUNICATION, (ESCX_ProcessStatus)status); return (ESCX_ProcessStatus)status;
+	}
 	return ESCX_STATUS_PROCESSED;
 }
 static ESCX_ProcessStatus CancelInvokesForState(ESCX_StateMachine* m, ESCX_BYTE_T state)
@@ -238,16 +240,24 @@ static ESCX_ProcessStatus CancelInvokesForState(ESCX_StateMachine* m, ESCX_BYTE_
 	ESCX_BYTE_T i, count; ESCX_UINT16_T first, index; ESCX_InvokeDescriptor d; ESCX_ProcessStatus first_failure, status;
 	first_failure = ESCX_STATUS_PROCESSED; if ((m->invokes == (const ESCX_InvokeDescriptor*)0) || (m->invoke_instances == (ESCX_InvokeInstance*)0))return first_failure;
 	if (InvokeRange(m, state, &first, &count) != ESCX_FALSE) {
-		for (index = first; index < (ESCX_UINT16_T)(first + count); ++index) { m->pending_invokes[index] = ESCX_FALSE; status = CancelInvokeInstance(m, (ESCX_BYTE_T)index); if ((first_failure == ESCX_STATUS_PROCESSED) && (status != ESCX_STATUS_PROCESSED))first_failure = status; }
+		for (index = first; index < (ESCX_UINT16_T)(first + count); ++index) {
+			m->pending_invokes[index] = ESCX_FALSE; status = CancelInvokeInstance(m, (ESCX_BYTE_T)index); if ((first_failure == ESCX_STATUS_PROCESSED) && (status != ESCX_STATUS_PROCESSED))first_failure = status;
+		}
 		return first_failure;
 	}
-	for (i = 0U; i < m->invoke_count; ++i) { ReadInvokeDescriptor(m, i, &d); if (d.owner_state == state) { m->pending_invokes[i] = ESCX_FALSE; status = CancelInvokeInstance(m, i); if ((first_failure == ESCX_STATUS_PROCESSED) && (status != ESCX_STATUS_PROCESSED))first_failure = status; } }
+	for (i = 0U; i < m->invoke_count; ++i) {
+		ReadInvokeDescriptor(m, i, &d); if (d.owner_state == state) {
+			m->pending_invokes[i] = ESCX_FALSE; status = CancelInvokeInstance(m, i); if ((first_failure == ESCX_STATUS_PROCESSED) && (status != ESCX_STATUS_PROCESSED))first_failure = status;
+		}
+	}
 	return first_failure;
 }
 static ESCX_ProcessStatus CallState(ESCX_StateMachine* m, ESCX_BYTE_T s, void* d, int which)
 {
 	const ESCX_StateDescriptor* x; ESCX_StateFunction legacy; ESCX_StatusStateFunction checked; int status;
-	x = &m->definition->states[s]; if (which == 1) { ESCX_ProcessStatus cancel_status; cancel_status = CancelInvokesForState(m, s); if (cancel_status != ESCX_STATUS_PROCESSED)return cancel_status; }
+	x = &m->definition->states[s]; if (which == 1) {
+		ESCX_ProcessStatus cancel_status; cancel_status = CancelInvokesForState(m, s); if (cancel_status != ESCX_STATUS_PROCESSED)return cancel_status;
+	}
 	checked = (which == 0) ? ReadStatusState(&x->on_entry_status) : ((which == 1) ? ReadStatusState(&x->on_exit_status) : ReadStatusState(&x->on_state_status));
 	if (checked != (ESCX_StatusStateFunction)0) {
 		status = checked(m, d); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status);
@@ -315,7 +325,7 @@ void ESCX_StateMachineInit(ESCX_StateMachine* m, const ESCX_StateMachineDefiniti
 		}
 	}
 #endif
-	m->active_bits = b; m->active_byte_count = z; m->fast_dispatch = (const ESCX_FastDispatch*)0; m->conflict_map = (const ESCX_ConflictMap*)0; m->preemption_map = (const ESCX_PreemptionMap*)0; m->transition_domain_map = (const ESCX_TransitionDomainMap*)0; m->workspace = (ESCX_MicrostepWorkspace*)0; m->completion_bits = (ESCX_BYTE_T*)0; m->completion_byte_count = 0U; memset(b, 0, z); m->active_atomic_count = 0U; m->current_event = ESCX_NO_EVENT; m->system_context.session_id = 0U; m->system_context.machine_name_id = 0U; m->system_context.io_processors = (const void*)0; m->system_context.platform_data = (void*)0; m->io_processor_send = (ESCX_IOProcessorSendFunction)0; m->io_processor_context = (void*)0; m->event_parent = (const ESCX_BYTE_T*)0; m->event_parent_count = 0U; m->wildcard_event = ESCX_NO_EVENT; m->current_event_descriptor.name_id = ESCX_NO_EVENT; m->current_event_descriptor.type = ESCX_EVENT_TYPE_INTERNAL; m->current_event_descriptor.origin_type = ESCX_EVENT_ORIGIN_NONE; m->current_event_descriptor.invoke_id = ESCX_NO_INVOKE; m->current_event_descriptor.send_id = ESCX_NO_SEND_ID; m->current_event_descriptor.data = (void*)0; m->triggering_event_descriptor = m->current_event_descriptor; m->has_triggering_event = ESCX_FALSE; m->error_execution_event = ESCX_NO_EVENT; m->error_communication_event = ESCX_NO_EVENT; m->last_error = ESCX_ERROR_NONE; m->last_error_status = ESCX_STATUS_PROCESSED; m->last_macrostep_result.event_accepted = ESCX_FALSE; m->last_macrostep_result.transition_taken = ESCX_FALSE; m->last_macrostep_result.microstep_count = 0U; m->error_event_data.code = ESCX_ERROR_NONE; m->error_event_data.cause = ESCX_STATUS_PROCESSED; m->error_event_data.triggering_event = (m->has_triggering_event != ESCX_FALSE) ? m->triggering_event_descriptor : m->current_event_descriptor; m->pending_error_event_data = m->error_event_data; m->reporting_error = ESCX_FALSE; m->pending_error_delivery = ESCX_FALSE; m->pending_error_delivery = ESCX_FALSE; m->running = ESCX_FALSE; m->processing = ESCX_FALSE; m->reporting_error = ESCX_FALSE; m->finished = ESCX_FALSE; m->finish_pending = ESCX_FALSE;
+	m->active_bits = b; m->active_byte_count = z; m->fast_dispatch = (const ESCX_FastDispatch*)0; m->conflict_map = (const ESCX_ConflictMap*)0; m->preemption_map = (const ESCX_PreemptionMap*)0; m->transition_domain_map = (const ESCX_TransitionDomainMap*)0; m->workspace = (ESCX_MicrostepWorkspace*)0; m->completion_bits = (ESCX_BYTE_T*)0; m->completion_byte_count = 0U; memset(b, 0, z); m->active_atomic_count = 0U; m->current_event = ESCX_NO_EVENT; m->system_context.session_id = 0U; m->system_context.machine_name_id = 0U; m->system_context.io_processors = (const void*)0; m->system_context.platform_data = (void*)0; m->io_processor_send = (ESCX_IOProcessorSendFunction)0; m->io_processor_context = (void*)0; m->event_parent = (const ESCX_BYTE_T*)0; m->event_parent_count = 0U; m->wildcard_event = ESCX_NO_EVENT; m->current_event_descriptor.name_id = ESCX_NO_EVENT; m->current_event_descriptor.type = ESCX_EVENT_TYPE_INTERNAL; m->current_event_descriptor.origin_type = ESCX_EVENT_ORIGIN_NONE; m->current_event_descriptor.invoke_id = ESCX_NO_INVOKE; m->current_event_descriptor.send_id = ESCX_NO_SEND_ID; m->current_event_descriptor.data = (void*)0; m->triggering_event_descriptor = m->current_event_descriptor; m->has_triggering_event = ESCX_FALSE; m->error_execution_event = ESCX_NO_EVENT; m->error_communication_event = ESCX_NO_EVENT; m->last_error = ESCX_ERROR_NONE; m->last_error_status = ESCX_STATUS_PROCESSED; m->last_macrostep_result.event_accepted = ESCX_FALSE; m->last_macrostep_result.transition_taken = ESCX_FALSE; m->last_macrostep_result.microstep_count = 0U; m->error_event_data.code = ESCX_ERROR_NONE; m->error_event_data.cause = ESCX_STATUS_PROCESSED; m->error_event_data.triggering_event = (m->has_triggering_event != ESCX_FALSE) ? m->triggering_event_descriptor : m->current_event_descriptor; m->pending_error_event_data = m->error_event_data; m->reporting_error = ESCX_FALSE; m->pending_error_delivery = ESCX_FALSE; m->running = ESCX_FALSE; m->processing = ESCX_FALSE; m->reporting_error = ESCX_FALSE; m->finished = ESCX_FALSE; m->finish_pending = ESCX_FALSE;
 #if ESCX_ENABLE_TIMERS
 	m->start_timer = st; m->cancel_timer = ct; m->timer_context = (void*)0;
 #else
@@ -462,23 +472,41 @@ static ESCX_BOOL_T EntryPlanContainsState(const ESCX_StateMachine* m, ESCX_UINT1
 }
 static ESCX_BOOL_T EntryPlanContainsDescendantOf(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T ancestor)
 {
-	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) { state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if ((state != ancestor) && (IsDescendantOf(m, state, ancestor) != ESCX_FALSE))return ESCX_TRUE; } return ESCX_FALSE;
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) {
+		state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if ((state != ancestor) && (IsDescendantOf(m, state, ancestor) != ESCX_FALSE))return ESCX_TRUE;
+	} return ESCX_FALSE;
 }
 static ESCX_BOOL_T EntryPlanContainsPlan(const ESCX_StateMachine* m, ESCX_UINT16_T outer_pid, ESCX_UINT16_T required_pid)
 {
-	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state; if ((required_pid == ESCX_NO_PLAN) || (required_pid >= m->definition->plan_count))return ESCX_FALSE; p = &m->definition->plans[required_pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); if (count == 0U)return ESCX_FALSE; for (i = 0U; i < count; ++i) { state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if (EntryPlanContainsState(m, outer_pid, state) == ESCX_FALSE)return ESCX_FALSE; } return ESCX_TRUE;
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state; if ((required_pid == ESCX_NO_PLAN) || (required_pid >= m->definition->plan_count))return ESCX_FALSE; p = &m->definition->plans[required_pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); if (count == 0U)return ESCX_FALSE; for (i = 0U; i < count; ++i) {
+		state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); if (EntryPlanContainsState(m, outer_pid, state) == ESCX_FALSE)return ESCX_FALSE;
+	} return ESCX_TRUE;
 }
 static ESCX_BOOL_T EntryPlanStateClosure(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T state, ESCX_BYTE_T depth)
 {
 	ESCX_BYTE_T type, count, child, represented, selected; ESCX_UINT16_T first, i, initial_plan; if (depth > ESCX_MAX_HIERARCHY_DEPTH)return ESCX_FALSE; type = Type(m, state); if ((type == ESCX_STATE_ATOMIC) || (type == ESCX_STATE_FINAL) || (type == ESCX_STATE_HISTORY_SHALLOW) || (type == ESCX_STATE_HISTORY_DEEP))return ESCX_TRUE; first = FirstChild(m, state); count = ChildCount(m, state);
-	if (type == ESCX_STATE_PARALLEL) { if ((count == 0U) || ((ESCX_UINT16_T)(first + count) > m->definition->child_count))return ESCX_FALSE; for (i = 0U; i < count; ++i) { child = ESCX_ROM_READ_U8(&m->definition->children[first + i]); if ((Type(m, child) == ESCX_STATE_HISTORY_SHALLOW) || (Type(m, child) == ESCX_STATE_HISTORY_DEEP))continue; if (EntryPlanContainsState(m, pid, child) == ESCX_FALSE)return ESCX_FALSE; if (EntryPlanStateClosure(m, pid, child, (ESCX_BYTE_T)(depth + 1U)) == ESCX_FALSE)return ESCX_FALSE; } return ESCX_TRUE; }
-	if (type != ESCX_STATE_COMPOUND)return ESCX_FALSE; if (count == 0U) { initial_plan = InitialEntryPlan(m, state); if (initial_plan != ESCX_NO_PLAN)return EntryPlanContainsPlan(m, pid, initial_plan); child = Initial(m, state); if ((child == ESCX_NO_STATE) || (EntryPlanContainsState(m, pid, child) == ESCX_FALSE))return ESCX_FALSE; return EntryPlanStateClosure(m, pid, child, (ESCX_BYTE_T)(depth + 1U)); } if ((ESCX_UINT16_T)(first + count) > m->definition->child_count)return ESCX_FALSE; represented = 0U; selected = ESCX_NO_STATE; for (i = 0U; i < count; ++i) { child = ESCX_ROM_READ_U8(&m->definition->children[first + i]); if ((Type(m, child) == ESCX_STATE_HISTORY_SHALLOW) || (Type(m, child) == ESCX_STATE_HISTORY_DEEP))continue; if ((EntryPlanContainsState(m, pid, child) != ESCX_FALSE) || (EntryPlanContainsDescendantOf(m, pid, child) != ESCX_FALSE)) { selected = child; ++represented; } }
-	if (represented > 1U)return ESCX_FALSE; if (represented == 1U) { if (EntryPlanContainsState(m, pid, selected) == ESCX_FALSE)return ESCX_FALSE; return EntryPlanStateClosure(m, pid, selected, (ESCX_BYTE_T)(depth + 1U)); }
+	if (type == ESCX_STATE_PARALLEL) {
+		if ((count == 0U) || ((ESCX_UINT16_T)(first + count) > m->definition->child_count))return ESCX_FALSE; for (i = 0U; i < count; ++i) {
+			child = ESCX_ROM_READ_U8(&m->definition->children[first + i]); if ((Type(m, child) == ESCX_STATE_HISTORY_SHALLOW) || (Type(m, child) == ESCX_STATE_HISTORY_DEEP))continue; if (EntryPlanContainsState(m, pid, child) == ESCX_FALSE)return ESCX_FALSE; if (EntryPlanStateClosure(m, pid, child, (ESCX_BYTE_T)(depth + 1U)) == ESCX_FALSE)return ESCX_FALSE;
+		} return ESCX_TRUE;
+	}
+	if (type != ESCX_STATE_COMPOUND)return ESCX_FALSE; if (count == 0U) {
+		initial_plan = InitialEntryPlan(m, state); if (initial_plan != ESCX_NO_PLAN)return EntryPlanContainsPlan(m, pid, initial_plan); child = Initial(m, state); if ((child == ESCX_NO_STATE) || (EntryPlanContainsState(m, pid, child) == ESCX_FALSE))return ESCX_FALSE; return EntryPlanStateClosure(m, pid, child, (ESCX_BYTE_T)(depth + 1U));
+	} if ((ESCX_UINT16_T)(first + count) > m->definition->child_count)return ESCX_FALSE; represented = 0U; selected = ESCX_NO_STATE; for (i = 0U; i < count; ++i) {
+		child = ESCX_ROM_READ_U8(&m->definition->children[first + i]); if ((Type(m, child) == ESCX_STATE_HISTORY_SHALLOW) || (Type(m, child) == ESCX_STATE_HISTORY_DEEP))continue; if ((EntryPlanContainsState(m, pid, child) != ESCX_FALSE) || (EntryPlanContainsDescendantOf(m, pid, child) != ESCX_FALSE)) {
+			selected = child; ++represented;
+		}
+	}
+	if (represented > 1U)return ESCX_FALSE; if (represented == 1U) {
+		if (EntryPlanContainsState(m, pid, selected) == ESCX_FALSE)return ESCX_FALSE; return EntryPlanStateClosure(m, pid, selected, (ESCX_BYTE_T)(depth + 1U));
+	}
 	initial_plan = InitialEntryPlan(m, state); if (initial_plan != ESCX_NO_PLAN)return EntryPlanContainsPlan(m, pid, initial_plan); child = Initial(m, state); if ((child == ESCX_NO_STATE) || (EntryPlanContainsState(m, pid, child) == ESCX_FALSE))return ESCX_FALSE; return EntryPlanStateClosure(m, pid, child, (ESCX_BYTE_T)(depth + 1U));
 }
 static ESCX_BOOL_T EntryPlanHasCompleteConfiguration(const ESCX_StateMachine* m, ESCX_UINT16_T pid)
 {
-	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state, type; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) { state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); type = Type(m, state); if (((type == ESCX_STATE_COMPOUND) || (type == ESCX_STATE_PARALLEL)) && (EntryPlanStateClosure(m, pid, state, 0U) == ESCX_FALSE))return ESCX_FALSE; } return ESCX_TRUE;
+	const ESCX_StatePlan* p; ESCX_UINT16_T first, i; ESCX_BYTE_T count, state, type; if (pid == ESCX_NO_PLAN)return ESCX_FALSE; p = &m->definition->plans[pid]; first = ESCX_ROM_READ_U16(&p->first_state); count = ESCX_ROM_READ_U8(&p->state_count); for (i = 0U; i < count; ++i) {
+		state = ESCX_ROM_READ_U8(&m->definition->plan_states[first + i]); type = Type(m, state); if (((type == ESCX_STATE_COMPOUND) || (type == ESCX_STATE_PARALLEL)) && (EntryPlanStateClosure(m, pid, state, 0U) == ESCX_FALSE))return ESCX_FALSE;
+	} return ESCX_TRUE;
 }
 static ESCX_BOOL_T EntryPlanMatchesTargets(const ESCX_StateMachine* m, ESCX_UINT16_T pid, ESCX_BYTE_T domain, const ESCX_TransitionDomainMap* map, const ESCX_TransitionDomainDescriptor* d)
 {
@@ -603,7 +631,9 @@ static ESCX_ProcessStatus InitializeAllData(ESCX_StateMachine* m)
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokes(ESCX_StateMachine* m, const ESCX_InvokeDescriptor* d, ESCX_InvokeInstance* i, ESCX_BYTE_T count)
 {
-	ESCX_BYTE_T n; if ((m == (ESCX_StateMachine*)0) || (count > ESCX_MAX_INVOKES) || (m->running != ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if ((count != 0U) && ((d == (const ESCX_InvokeDescriptor*)0) || (i == (ESCX_InvokeInstance*)0)))return ESCX_STATUS_INVALID_ARGUMENT; m->invokes = d; m->invoke_instances = i; m->invoke_count = count; for (n = 0U; n < ESCX_MAX_INVOKES; ++n)m->pending_invokes[n] = ESCX_FALSE; for (n = 0U; n < count; ++n) { i[n].active = ESCX_FALSE; i[n].generation = 0U; } return ESCX_STATUS_PROCESSED;
+	ESCX_BYTE_T n; if ((m == (ESCX_StateMachine*)0) || (count > ESCX_MAX_INVOKES) || (m->running != ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if ((count != 0U) && ((d == (const ESCX_InvokeDescriptor*)0) || (i == (ESCX_InvokeInstance*)0)))return ESCX_STATUS_INVALID_ARGUMENT; m->invokes = d; m->invoke_instances = i; m->invoke_count = count; for (n = 0U; n < ESCX_MAX_INVOKES; ++n)m->pending_invokes[n] = ESCX_FALSE; for (n = 0U; n < count; ++n) {
+		i[n].active = ESCX_FALSE; i[n].generation = 0U;
+	} return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureInvokeMap(ESCX_StateMachine* m, const ESCX_InvokeMap* map)
 {
@@ -619,7 +649,9 @@ ESCX_ProcessStatus ESCX_StateMachineConfigureInvokeMap(ESCX_StateMachine* m, con
 			ReadInvokeDescriptor(m, (ESCX_BYTE_T)index, &d); if (d.owner_state != state)return ESCX_STATUS_INVALID_ARGUMENT;
 		}
 	}
-	for (i = 0U; i < m->invoke_count; ++i) { ReadInvokeDescriptor(m, i, &d); if ((d.owner_state == ESCX_NO_STATE) || ((ESCX_UINT16_T)d.owner_state >= m->definition->state_count) || (seen[i] == 0U))return ESCX_STATUS_INVALID_ARGUMENT; }
+	for (i = 0U; i < m->invoke_count; ++i) {
+		ReadInvokeDescriptor(m, i, &d); if ((d.owner_state == ESCX_NO_STATE) || ((ESCX_UINT16_T)d.owner_state >= m->definition->state_count) || (seen[i] == 0U))return ESCX_STATUS_INVALID_ARGUMENT;
+	}
 	m->invoke_map = map; return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineConfigureExitOrder(ESCX_StateMachine* m, const ESCX_ExitOrder* order)
@@ -642,22 +674,24 @@ static ESCX_ProcessStatus ExecuteInvokeFinalizeEvent(ESCX_StateMachine* m, const
 	checked = ReadInvokeFinalizeStatus(&d->finalize_status); if (checked != (ESCX_InvokeFinalizeStatusFunction)0) {
 		status = checked(m, d->child_storage, event); m->current_event_descriptor = saved_event; m->current_event = saved_event_id; if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status);
 	}
-	else { if (d->finalize != (ESCX_InvokeFinalizeFunction)0)d->finalize(m, d->child_storage, event->name_id, event->data); m->current_event_descriptor = saved_event; m->current_event = saved_event_id; }
+	else {
+		if (d->finalize != (ESCX_InvokeFinalizeFunction)0)d->finalize(m, d->child_storage, event->name_id, event->data); m->current_event_descriptor = saved_event; m->current_event = saved_event_id;
+	}
 	return ESCX_STATUS_PROCESSED;
 }
 ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ESCX_InvokeToken token, const ESCX_Event* event)
 {
-	ESCX_InvokeDescriptor d; 
-	ESCX_DoneDataFunction done_data; 
+	ESCX_InvokeDescriptor d;
+	ESCX_DoneDataFunction done_data;
 	ESCX_ProcessStatus fs;
 	ESCX_Event done;
-	void* payload; 
+	void* payload;
 	int status;
 	if ((event == (const ESCX_Event*)0) || (InvokeTokenMatches(m, token) == ESCX_FALSE))
 		return ESCX_STATUS_INVALID_ARGUMENT;
-	ReadInvokeDescriptor(m, token.descriptor_index, &d); 
+	ReadInvokeDescriptor(m, token.descriptor_index, &d);
 	done = *event; done.origin_type = ESCX_EVENT_ORIGIN_INVOKE;
-	done.invoke_id = token.descriptor_index; 
+	done.invoke_id = token.descriptor_index;
 	/* Reserve acceptance conditions before evaluating donedata or finalize. */
 	if ((done.name_id != ESCX_NO_EVENT) && (done.name_id >= m->definition->event_count))return ESCX_STATUS_INVALID_EVENT;
 	if ((done.name_id != ESCX_NO_EVENT) && (ESCX_EventQueueIsFull(&m->internal_queue) != ESCX_FALSE))return ESCX_STATUS_QUEUE_FULL;
@@ -667,7 +701,9 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvokeEvent(ESCX_StateMachine* m, ES
 		status = done_data(m, &payload); if (status != (int)ESCX_STATUS_PROCESSED)return ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status); done.data = payload;
 	}
 	fs = ExecuteInvokeFinalizeEvent(m, &d, &done); if (fs != ESCX_STATUS_PROCESSED)return fs;
-	if (done.name_id == ESCX_NO_EVENT) { m->invoke_instances[token.descriptor_index].active = ESCX_FALSE; return ESCX_STATUS_PROCESSED; }
+	if (done.name_id == ESCX_NO_EVENT) {
+		m->invoke_instances[token.descriptor_index].active = ESCX_FALSE; return ESCX_STATUS_PROCESSED;
+	}
 	if (ESCX_EventQueuePushEx(&m->internal_queue, done.name_id, done.type, done.origin_type, done.invoke_id, done.send_id, done.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL;
 	/* Commit completion only after payload evaluation, finalize, and event publication succeed. */
 	m->invoke_instances[token.descriptor_index].active = ESCX_FALSE;
@@ -685,7 +721,10 @@ ESCX_ProcessStatus ESCX_StateMachineCompleteInvoke(ESCX_StateMachine* m, ESCX_In
 
 ESCX_ProcessStatus ESCX_StateMachineReceiveInvokeEventDescriptor(ESCX_StateMachine* m, ESCX_InvokeToken token, const ESCX_Event* event)
 {
-	ESCX_InvokeDescriptor d; ESCX_ProcessStatus fs; ESCX_Event normalized; if ((event == (const ESCX_Event*)0) || (InvokeTokenMatches(m, token) == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (event->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT; normalized = *event; normalized.origin_type = ESCX_EVENT_ORIGIN_INVOKE; normalized.invoke_id = token.descriptor_index; ReadInvokeDescriptor(m, token.descriptor_index, &d); fs = ExecuteInvokeFinalizeEvent(m, &d, &normalized); if (fs != ESCX_STATUS_PROCESSED)return fs; if (ESCX_EventQueuePushEx(&m->internal_queue, normalized.name_id, normalized.type, normalized.origin_type, normalized.invoke_id, normalized.send_id, normalized.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL; if (m->processing == ESCX_FALSE) {
+	ESCX_InvokeDescriptor d; ESCX_ProcessStatus fs; ESCX_Event normalized; if ((event == (const ESCX_Event*)0) || (InvokeTokenMatches(m, token) == ESCX_FALSE))return ESCX_STATUS_INVALID_ARGUMENT; if (event->name_id >= m->definition->event_count)return ESCX_STATUS_INVALID_EVENT;
+	/* Acceptance is transactional: queue pressure must not execute finalize before the event can be published. */
+	if (ESCX_EventQueueIsFull(&m->internal_queue) != ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL;
+	normalized = *event; normalized.origin_type = ESCX_EVENT_ORIGIN_INVOKE; normalized.invoke_id = token.descriptor_index; ReadInvokeDescriptor(m, token.descriptor_index, &d); fs = ExecuteInvokeFinalizeEvent(m, &d, &normalized); if (fs != ESCX_STATUS_PROCESSED)return fs; if (ESCX_EventQueuePushEx(&m->internal_queue, normalized.name_id, normalized.type, normalized.origin_type, normalized.invoke_id, normalized.send_id, normalized.data) == ESCX_FALSE)return ESCX_STATUS_QUEUE_FULL; if (m->processing == ESCX_FALSE) {
 		ESCX_ProcessStatus result; m->processing = ESCX_TRUE; result = Stabilize(m); m->processing = ESCX_FALSE; if ((result == ESCX_STATUS_PROCESSED) && (m->finish_pending != ESCX_FALSE))FinishInterpreter(m); return result;
 	}return ESCX_STATUS_PROCESSED;
 }
@@ -1074,7 +1113,9 @@ const ESCX_Event* ESCX_StateMachineGetCurrentEvent(const ESCX_StateMachine* m)
 static ESCX_ProcessStatus EvaluateSelector(ESCX_StateMachine* m, ESCX_SelectorFunction selector, void* data, ESCX_UINT16_T* transition_id)
 {
 	int status; *transition_id = ESCX_NO_TRANSITION; status = selector(m, data, transition_id);
-	if (status != (int)ESCX_STATUS_PROCESSED) { *transition_id = ESCX_NO_TRANSITION; (void)ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status); }
+	if (status != (int)ESCX_STATUS_PROCESSED) {
+		*transition_id = ESCX_NO_TRANSITION; (void)ReportErrorInternal(m, ESCX_ERROR_EXECUTION, (ESCX_ProcessStatus)status);
+	}
 	return ESCX_STATUS_PROCESSED;
 }
 static ESCX_ProcessStatus ProcessEvent(ESCX_StateMachine* m, ESCX_BYTE_T e, void* d)
@@ -1144,8 +1185,12 @@ static void TryQueuePendingError(ESCX_StateMachine* m)
 	ESCX_BYTE_T event_id;
 	if ((m->pending_error_delivery == ESCX_FALSE) || (m->reporting_error != ESCX_FALSE) || (m->running == ESCX_FALSE))return;
 	event_id = (m->pending_error_event_data.code == ESCX_ERROR_COMMUNICATION) ? m->error_communication_event : m->error_execution_event;
-	if (event_id == ESCX_NO_EVENT) { m->pending_error_delivery = ESCX_FALSE; return; }
-	if (ESCX_EventQueuePushEx(&m->internal_queue, event_id, ESCX_EVENT_TYPE_PLATFORM, ESCX_EVENT_ORIGIN_PLATFORM, ESCX_NO_INVOKE, ESCX_NO_SEND_ID, &m->pending_error_event_data) != ESCX_FALSE) { m->pending_error_delivery = ESCX_FALSE; m->reporting_error = ESCX_TRUE; }
+	if (event_id == ESCX_NO_EVENT) {
+		m->pending_error_delivery = ESCX_FALSE; return;
+	}
+	if (ESCX_EventQueuePushEx(&m->internal_queue, event_id, ESCX_EVENT_TYPE_PLATFORM, ESCX_EVENT_ORIGIN_PLATFORM, ESCX_NO_INVOKE, ESCX_NO_SEND_ID, &m->pending_error_event_data) != ESCX_FALSE) {
+		m->pending_error_delivery = ESCX_FALSE; m->reporting_error = ESCX_TRUE;
+	}
 #else
 	(void)m;
 #endif
@@ -1207,7 +1252,7 @@ static void RollbackFailedStart(ESCX_StateMachine* m)
 	m->active_atomic_count = 0U;
 	for (i = 0U; i < ESCX_MAX_INVOKES; ++i)m->pending_invokes[i] = ESCX_FALSE;
 	if (m->invoke_instances != (ESCX_InvokeInstance*)0)for (i = 0U; i < m->invoke_count; ++i)m->invoke_instances[i].active = ESCX_FALSE;
-	m->running = ESCX_FALSE; m->processing = ESCX_FALSE; m->finished = ESCX_FALSE; m->finish_pending = ESCX_FALSE; m->pending_error_delivery = ESCX_FALSE; m->reporting_error = ESCX_FALSE; m->pending_error_delivery = ESCX_FALSE;
+	m->running = ESCX_FALSE; m->processing = ESCX_FALSE; m->finished = ESCX_FALSE; m->finish_pending = ESCX_FALSE; m->pending_error_delivery = ESCX_FALSE; m->reporting_error = ESCX_FALSE;
 	SetNeutralCurrentEvent(m); m->triggering_event_descriptor = m->current_event_descriptor; m->has_triggering_event = ESCX_FALSE;
 }
 ESCX_ProcessStatus ESCX_StateMachineStart(ESCX_StateMachine* m)
@@ -1311,10 +1356,14 @@ ESCX_ProcessStatus ESCX_StateMachineTimerExpired(ESCX_StateMachine* m, ESCX_Dela
 	ESCX_BYTE_T i; ESCX_DelayedSend pending; if (m == (ESCX_StateMachine*)0)return ESCX_STATUS_INVALID_ARGUMENT; if (m->running == ESCX_FALSE)return ESCX_STATUS_NOT_RUNNING; if (id == ESCX_INVALID_TIMER_ID)return ESCX_STATUS_IGNORED;
 	if ((token.slot >= ESCX_MAX_DELAYED_SENDS) || (token.generation == 0U))return ESCX_STATUS_IGNORED;
 	i = token.slot; if ((m->delayed_sends[i].active != ESCX_FALSE) && (m->delayed_sends[i].generation == token.generation) && (m->delayed_sends[i].timer_id == id)) {
-		pending = m->delayed_sends[i]; m->delayed_sends[i].active = ESCX_FALSE; m->delayed_sends[i].timer_id = ESCX_INVALID_TIMER_ID;
+		ESCX_ProcessStatus delivery_status; pending = m->delayed_sends[i];
 		if (pending.uses_target_descriptor != ESCX_FALSE) {
-			ESCX_Event delayed_event; delayed_event.name_id = pending.event_id; delayed_event.type = pending.event_type; delayed_event.origin_type = pending.origin_type; delayed_event.invoke_id = pending.invoke_id; delayed_event.send_id = pending.send_id; delayed_event.data = pending.event_data; return ESCX_StateMachineSendToTarget(m, &pending.target_descriptor, &delayed_event);
-		}return DispatchSend(m, pending.event_id, pending.event_data, pending.target, pending.target_id);
+			ESCX_Event delayed_event; delayed_event.name_id = pending.event_id; delayed_event.type = pending.event_type; delayed_event.origin_type = pending.origin_type; delayed_event.invoke_id = pending.invoke_id; delayed_event.send_id = pending.send_id; delayed_event.data = pending.event_data; delivery_status = ESCX_StateMachineSendToTarget(m, &pending.target_descriptor, &delayed_event);
+		}
+		else delivery_status = DispatchSend(m, pending.event_id, pending.event_data, pending.target, pending.target_id);
+		/* Queue pressure has no delivery side effect. Retain the exact slot/token so the client may retry the same expiry after capacity is available. */
+		if (delivery_status == ESCX_STATUS_QUEUE_FULL)return delivery_status;
+		m->delayed_sends[i].active = ESCX_FALSE; m->delayed_sends[i].timer_id = ESCX_INVALID_TIMER_ID; return delivery_status;
 	}
 	return ESCX_STATUS_IGNORED;
 #else
@@ -1464,11 +1513,22 @@ static ESCX_ProcessStatus ReportErrorInternal(ESCX_StateMachine* m, ESCX_ErrorCo
 	m->last_error = (ESCX_BYTE_T)code; m->last_error_status = cause;
 	m->error_event_data.code = (ESCX_BYTE_T)code; m->error_event_data.cause = cause;
 	m->error_event_data.triggering_event = (m->has_triggering_event != ESCX_FALSE) ? m->triggering_event_descriptor : m->current_event_descriptor;
-	if ((m->reporting_error != ESCX_FALSE) || (m->pending_error_delivery != ESCX_FALSE))return cause;
+	if (m->reporting_error != ESCX_FALSE)return cause;
+	if (m->pending_error_delivery != ESCX_FALSE) {
+		if (m->processing != ESCX_FALSE)return cause;
+		TryQueuePendingError(m);
+		if (m->reporting_error != ESCX_FALSE) {
+			m->processing = ESCX_TRUE; stabilization_status = Stabilize(m); m->processing = ESCX_FALSE;
+			if ((stabilization_status != ESCX_STATUS_PROCESSED) && (stabilization_status != ESCX_STATUS_IGNORED))return stabilization_status;
+		}
+		return cause;
+	}
 	event_id = (code == ESCX_ERROR_COMMUNICATION) ? m->error_communication_event : m->error_execution_event;
 	if ((event_id == ESCX_NO_EVENT) || (m->running == ESCX_FALSE))return cause;
 	m->pending_error_event_data = m->error_event_data;
-	if (ESCX_EventQueuePushEx(&m->internal_queue, event_id, ESCX_EVENT_TYPE_PLATFORM, ESCX_EVENT_ORIGIN_PLATFORM, ESCX_NO_INVOKE, ESCX_NO_SEND_ID, &m->pending_error_event_data) == ESCX_FALSE) { m->pending_error_delivery = ESCX_TRUE; return cause; }
+	if (ESCX_EventQueuePushEx(&m->internal_queue, event_id, ESCX_EVENT_TYPE_PLATFORM, ESCX_EVENT_ORIGIN_PLATFORM, ESCX_NO_INVOKE, ESCX_NO_SEND_ID, &m->pending_error_event_data) == ESCX_FALSE) {
+		m->pending_error_delivery = ESCX_TRUE; return cause;
+	}
 	m->pending_error_delivery = ESCX_FALSE; m->reporting_error = ESCX_TRUE;
 	if (m->processing == ESCX_FALSE) {
 		m->processing = ESCX_TRUE; stabilization_status = Stabilize(m); m->processing = ESCX_FALSE; if ((stabilization_status != ESCX_STATUS_PROCESSED) && (stabilization_status != ESCX_STATUS_IGNORED))return stabilization_status;
@@ -1511,6 +1571,6 @@ const ESCX_ErrorEventData* ESCX_StateMachineGetLastErrorData(const ESCX_StateMac
 void ESCX_StateMachineClearError(ESCX_StateMachine* m)
 {
 	if (m != (ESCX_StateMachine*)0) {
-		m->last_error = ESCX_ERROR_NONE; m->last_error_status = ESCX_STATUS_PROCESSED; m->error_event_data.code = ESCX_ERROR_NONE; m->error_event_data.cause = ESCX_STATUS_PROCESSED; m->error_event_data.triggering_event.name_id = ESCX_NO_EVENT; m->error_event_data.triggering_event.type = ESCX_EVENT_TYPE_INTERNAL; m->error_event_data.triggering_event.origin_type = ESCX_EVENT_ORIGIN_NONE; m->error_event_data.triggering_event.invoke_id = ESCX_NO_INVOKE; m->error_event_data.triggering_event.send_id = ESCX_NO_SEND_ID; m->error_event_data.triggering_event.data = (void*)0; m->pending_error_event_data = m->error_event_data; m->reporting_error = ESCX_FALSE;
+		m->last_error = ESCX_ERROR_NONE; m->last_error_status = ESCX_STATUS_PROCESSED; m->error_event_data.code = ESCX_ERROR_NONE; m->error_event_data.cause = ESCX_STATUS_PROCESSED; m->error_event_data.triggering_event.name_id = ESCX_NO_EVENT; m->error_event_data.triggering_event.type = ESCX_EVENT_TYPE_INTERNAL; m->error_event_data.triggering_event.origin_type = ESCX_EVENT_ORIGIN_NONE; m->error_event_data.triggering_event.invoke_id = ESCX_NO_INVOKE; m->error_event_data.triggering_event.send_id = ESCX_NO_SEND_ID; m->error_event_data.triggering_event.data = (void*)0; m->pending_error_event_data = m->error_event_data; m->reporting_error = ESCX_FALSE; m->pending_error_delivery = ESCX_FALSE;
 	}
 }
